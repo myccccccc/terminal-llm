@@ -229,7 +229,36 @@ def process_text_with_tree(text):
         dir_context = get_directory_context()
         # 将目录上下文附加到文本后
         text = f"{text}\n{dir_context}"
+    print(text)
     return text
+
+def process_text_with_file_path(text):
+    """处理包含@...的文本，附加文件内容"""
+    import re
+    
+    # 使用正则表达式查找所有@开头的路径
+    matches = re.findall(r'@([^\s]+)', text)
+    
+    # 初始化文件内容列表
+    file_contents = []
+    
+    # 处理每个匹配的路径
+    for file_path in matches:
+        if os.path.exists(file_path):
+            try:
+                # 读取文件内容
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read(10240)  # 最多读取10k
+                # 将文件内容添加到列表
+                file_contents.append(f"\n\n文件 {file_path} 内容:```\n{content}```")
+            except Exception as e:
+                file_contents.append(f"\n\n无法读取文件 {file_path}: {str(e)}")
+    
+    # 删除所有@...结构
+    cleaned_text = re.sub(r'@[^\s]+', '', text)
+    
+    # 将文件内容附加到清理后的文本末尾
+    return cleaned_text + ''.join(file_contents)
 
 
 def process_response(response_data, file_path, save=True):
@@ -308,7 +337,8 @@ def main():
     else:
         print("ℹ️ 未检测到代理配置")
     if args.ask:
-        text = process_text_with_tree(args.ask)
+        text = process_text_with_file_path(process_text_with_tree(args.ask))
+        print(text)
         response_data = query_groq_api(api_key, text, proxies)
         process_response(response_data, "", save=False)
         return
