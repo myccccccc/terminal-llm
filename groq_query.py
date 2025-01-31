@@ -145,19 +145,92 @@ def query_groq_api(api_key, prompt, proxies=None):
         print(f"API请求失败: {e}")
         sys.exit(1)
 
-def check_glow_installed():
-    """检查glow是否已安装"""
+def _check_tool_installed(tool_name, install_url=None, install_commands=None):
+    """检查指定工具是否已安装"""
+    result = subprocess.run(["which", tool_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        print(f"错误：{tool_name} 未安装")
+        if install_url:
+            print(f"请访问 {install_url} 安装{tool_name}")
+        if install_commands:
+            print("请使用以下命令安装：")
+            for cmd in install_commands:
+                print(f"  {cmd}")
+        return False
+    return True
+
+def check_deps_installed():
+    """检查glow和tree是否已安装"""
     try:
-        result = subprocess.run(["which", "glow"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if result.returncode != 0:
-            print("错误：glow 未安装")
-            print("请访问 https://github.com/charmbracelet/glow 安装glow")
-            print("macOS用户可以使用以下命令安装：")
-            print("  brew install glow")
+        # 检查glow
+        glow_installed = _check_tool_installed(
+            "glow",
+            install_url="https://github.com/charmbracelet/glow",
+            install_commands=["brew install glow"]
+        )
+        if not glow_installed:
             return False
-        return True
+        
+        # 检查tree
+        tree_installed = _check_tool_installed(
+            "tree",
+            install_commands=[
+                "macOS: brew install tree",
+                "Ubuntu/Debian: sudo apt install tree",
+                "CentOS/Fedora: sudo yum install tree"
+            ]
+        )
+        return tree_installed
+            
     except Exception:
         return False
+
+
+def get_directory_context():
+    """获取当前目录上下文信息"""
+    try:
+        # 获取当前工作目录
+        current_dir = os.getcwd()
+        
+        # 使用tree命令获取目录结构
+        tree_result = subprocess.run(
+            ["tree", "-L", "1"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        # 如果tree命令成功
+        if tree_result.returncode == 0:
+            tree_output = tree_result.stdout
+        else:
+            # 如果tree命令失败，使用ls作为备选方案
+            ls_result = subprocess.run(
+                ["ls", "-l"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            tree_output = ls_result.stdout if ls_result.returncode == 0 else "无法获取目录信息"
+        # 组合输出
+        context = f"当前工作目录: {current_dir}\n\n目录结构:\n{tree_output}"
+        return context
+    
+    except Exception as e:
+        return f"获取目录上下文时出错: {str(e)}"
+
+
+def process_text_with_tree(text):
+    """处理包含@tree的文本，获取目录上下文并附加"""
+    if "@tree" in text:
+        # 移除@tree标记
+        text = text.replace("@tree", "")
+        # 获取目录上下文
+        dir_context = get_directory_context()
+        # 将目录上下文附加到文本后
+        text = f"{text}\n{dir_context}"
+    return text
+
 
 def process_response(response_data, file_path, save=True):
     """处理API响应并保存结果"""
@@ -194,7 +267,7 @@ def process_response(response_data, file_path, save=True):
             tmp_file.write(content)
             save_path = tmp_file.name
 
-    if not check_glow_installed():
+    if not check_deps_installed():
         sys.exit(1)
     
     try:
@@ -235,7 +308,8 @@ def main():
     else:
         print("ℹ️ 未检测到代理配置")
     if args.ask:
-        response_data = query_groq_api(api_key, args.ask, proxies)
+        text = process_text_with_tree(args.ask)
+        response_data = query_groq_api(api_key, text, proxies)
         process_response(response_data, "", save=False)
         return
     try:
