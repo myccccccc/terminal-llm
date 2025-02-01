@@ -84,8 +84,7 @@ delete=True) as f:
                     logger.debug(f"🔄 开始转换，临时文件: {f.name}")
                     md = MarkItDown()
                     result = md.convert(f.name)
-                    logger.debug(f"✅ 转换完成，Markdown长度: {len(result.
-text_content)} 字符")
+                    logger.debug(f"✅ 转换完成，Markdown长度: {len(result.text_content)} 字符")
 
                 self.write(result.text_content)
             except gen.TimeoutError:
