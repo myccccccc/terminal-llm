@@ -290,7 +290,7 @@ def fetch_url_content(url):
         return f"获取URL内容失败: {str(e)}"
 
 def process_text_with_file_path(text):
-    """处理包含@...的文本，支持@cmd命令、@path文件路径和@http网址"""
+    """处理包含@...的文本，支持@cmd命令、@path文件路径、@http网址和prompts目录下的模板文件"""
 
     # 定义命令映射表
     cmd_map = {
@@ -316,6 +316,19 @@ def process_text_with_file_path(text):
         else:
             # 尝试展开相对路径
             expanded_path = os.path.abspath(os.path.expanduser(match))
+            
+            # 优先检查prompts目录下的文件
+            prompts_path = os.path.join(os.path.dirname(__file__), 'prompts', match)
+            if os.path.exists(prompts_path):
+                try:
+                    with open(prompts_path, 'r', encoding='utf-8') as f:
+                        content = f.read(10240)  # 最多读取10k
+                    contents.append(f"\n{content}\n")
+                    text = text.replace(f"@{match}", "")
+                    continue
+                except Exception as e:
+                    contents.append(f"\n\n无法读取提示词模板 {prompts_path}: {str(e)}")
+                    continue
             if os.path.exists(expanded_path):
                 try:
                     with open(expanded_path, 'r', encoding='utf-8') as f:

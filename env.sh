@@ -38,25 +38,51 @@ function askgpt() {
 }
 
 _at_complete() {
+    # 定义调试开关
+    local DEBUG=${GPT_DEBUG:-0}
+
+    # 输出调试信息
+    [[ $DEBUG -eq 1 ]] && echo "Debug: 当前PREFIX = $PREFIX" >&2
+    [[ $DEBUG -eq 1 ]] && echo "Debug: 当前GPT_PATH = $GPT_PATH" >&2
+
     # 检查当前输入是否以@开头
     if [[ "$PREFIX" == @* ]]; then
         # 保存原始前缀
         local orig_prefix=$PREFIX
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 检测到@前缀，原始前缀 = $orig_prefix" >&2
+        
         # 提取@后的部分作为新前缀
         PREFIX=${orig_prefix#@}
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 新PREFIX = $PREFIX" >&2
+        
         # 设置IPREFIX为@，使得补全结果自动添加@
         IPREFIX="@"
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 设置IPREFIX = $IPREFIX" >&2
 
-        # 生成补全建议：首先添加clipboard和tree，然后文件补全
+        # 获取prompts目录下的文件列表
+        local prompt_files=()
+        if [[ -d "$GPT_PATH/prompts" ]]; then
+            prompt_files=($(ls "$GPT_PATH/prompts"))
+            # 只输出一次提示词文件信息
+            [[ $DEBUG -eq 1 ]] && echo "Debug: 找到提示词文件: ${prompt_files[@]}" >&2
+        else
+            [[ $DEBUG -eq 1 ]] && echo "Debug: 未找到提示词目录 $GPT_PATH/prompts" >&2
+        fi
+
+        # 生成补全建议：首先添加clipboard和tree，然后prompts目录文件，最后普通文件补全
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 开始生成补全建议" >&2
         _alternative \
             'special:特殊选项:(clipboard tree treefull)' \
+            'prompts:提示词文件:(${prompt_files[@]})' \
             'files:文件名:_files'
 
         # 恢复原始前缀（避免影响其他补全）
         PREFIX=$orig_prefix
         IPREFIX=""
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 恢复原始前缀 PREFIX = $PREFIX, IPREFIX = $IPREFIX" >&2
     else
         # 其他情况使用默认文件补全
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 未检测到@前缀，使用默认文件补全" >&2
         _files "$@"
     fi
 }

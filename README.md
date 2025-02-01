@@ -12,9 +12,9 @@
   - 目录结构查看 (`@tree`/`@treefull`)
   - 文件内容嵌入 (`@文件路径`)
   - 网页内容嵌入 (`@http://example.com`)
+  - 常用prompt引用 (`@quicksort`)
 - **网页内容转换**：内置Web服务器提供HTML转Markdown服务
-  - 浏览器扩展集成支持
-  - 实时WebSocket通信
+  - 浏览器扩展集成支持, 绕过cloudflare干扰
   - 自动内容提取与格式转换
 - **智能分块处理**：自动处理大文件分块分析
 - **代理支持**：完善的HTTP代理配置检测
@@ -36,6 +36,9 @@ askgpt "请优化这个配置文件：@config/settings.yaml"
 
 # 访问网页
 askgpt @https://tree-sitter.github.io/tree-sitter/using-parsers/1-getting-started.html 归纳这个文档
+
+# 嵌入常用提示词, 文件放到在prompts/目录
+askgpt @quicksort
 ```
 
 
