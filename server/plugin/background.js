@@ -1,15 +1,17 @@
 const DEBUG = true; // 设为false关闭调试输出
 
-let ws = null;
+let ws = null, reconnectTimer = null;
 let currentTabId = null;
 let requestId = null;
 
-async function connectWebSocket() {
+async function connectWebSocket(serverUrl) {
+  if (ws && ws.readyState === WebSocket.OPEN) return;
   if (DEBUG) console.debug('🔄 正在连接WS服务器...');
-  ws = new WebSocket('ws://localhost:8000/ws');
+  ws = new WebSocket(serverUrl);
 
   ws.onopen = () => {
     if (DEBUG) console.debug('✅ 成功连接WS服务器');
+    clearTimeout(reconnectTimer);
   };
 
   ws.onmessage = async (event) => {
@@ -23,8 +25,16 @@ async function connectWebSocket() {
 
   ws.onclose = () => {
     if (DEBUG) console.debug('❌ 连接断开，1秒后重连...');
-    setTimeout(connectWebSocket, 1000);
+      reconnectTimer = setTimeout(() => initWebSocket(), 1000);
   };
+}
+
+
+function initWebSocket() {
+  chrome.storage.local.get(['serverUrl'], (result) => {
+    const serverUrl = result.serverUrl || 'ws://localhost:8000/ws';
+    connectWebSocket(serverUrl);
+  });
 }
 
 async function createTab(url) {
@@ -66,10 +76,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 });
 
 // 初始化连接
-connectWebSocket();
-
-
-
+initWebSocket();
 const keepAlive = () => {                                                     
   // 初始创建第一个心跳alarm（20秒后触发）                                    
   chrome.alarms.create('keep-alive', { delayInMinutes: 20 / 60 });            

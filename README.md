@@ -52,7 +52,7 @@ cd terminal-llm
 
 2. **设置虚拟环境**
 ```bash
-uv sync
+uv sync #uv python list; uv python install 某个版本的python, 3.12及以上
 source .venv/bin/activate
 ```
 

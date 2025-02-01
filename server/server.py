@@ -7,6 +7,7 @@ import logging
 from tornado import web, websocket, ioloop, gen
 import pdb
 from markitdown import MarkItDown
+import argparse
 
 # 调试模式配置
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
@@ -108,8 +109,21 @@ def make_app():
         (r"/ws", BrowserWebSocketHandler),
     ])
 
+
+
 if __name__ == "__main__":
+    # 添加参数解析
+    parser = argparse.ArgumentParser(description='启动服务器。')
+    parser.add_argument('--addr', default='127.0.0.1',
+                      help='服务器监听地址 (默认: 127.0.0.1)')
+    parser.add_argument('--port', type=int, default=8000,
+                      help='服务器监听端口 (默认: 8000)')
+    args = parser.parse_args()
+
     app = make_app()
-    app.listen(8000, address='127.0.0.1')  # 仅监听本地连接
-    logger.info("🚀 服务器已启动，监听 127.0.0.1:8000")
+    # 使用参数中的地址和端口
+    app.listen(args.port, address=args.addr)
+    logger.info(f"🚀 服务器已启动，监听 {args.addr}:{args.port}")
     ioloop.IOLoop.current().start()
+
+
