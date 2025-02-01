@@ -31,6 +31,7 @@ cd terminal-llm
 2. **设置虚拟环境**
 ```bash
 uv sync
+source .venv/bin/activate
 ```
 
 3. **环境变量配置**
