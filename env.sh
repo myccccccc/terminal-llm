@@ -49,7 +49,7 @@ _at_complete() {
 
         # 生成补全建议：首先添加clipboard和tree，然后文件补全
         _alternative \
-            'special:特殊选项:(clipboard tree)' \
+            'special:特殊选项:(clipboard tree, treefull)' \
             'files:文件名:_files'
 
         # 恢复原始前缀（避免影响其他补全）

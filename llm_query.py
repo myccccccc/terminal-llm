@@ -152,7 +152,7 @@ def check_deps_installed():
         )
         if not glow_installed:
             return False
-        
+
         # 检查tree
         tree_installed = _check_tool_installed(
             "tree",
@@ -164,7 +164,7 @@ def check_deps_installed():
         )
         if not tree_installed:
             return False
-            
+
         # 检查剪贴板工具
         if sys.platform == 'win32':
             try:
@@ -192,44 +192,37 @@ def check_deps_installed():
                 ]
             )
             return clipboard_installed
-            
+
     except Exception:
         return False
 
 
-def get_directory_context():
-    """获取当前目录上下文信息"""
+def get_directory_context(max_depth=1):
+    """获取当前目录上下文信息（支持动态层级控制）"""
     try:
-        # 获取当前工作目录
         current_dir = os.getcwd()
-        
-        # 使用tree命令获取目录结构
-        tree_result = subprocess.run(
-            ["tree", "-L", "1"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        
-        # 如果tree命令成功
-        if tree_result.returncode == 0:
-            tree_output = tree_result.stdout
-        else:
-            # 如果tree命令失败，使用ls作为备选方案
-            ls_result = subprocess.run(
-                ["ls", "-l"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            tree_output = ls_result.stdout if ls_result.returncode == 0 else "无法获取目录信息"
-        # 组合输出
-        context = f"当前工作目录: {current_dir}\n\n目录结构:\n{tree_output}"
-        return context
-    
+        cmd = ["tree"]
+        if max_depth is not None:
+            cmd.extend(["-L", str(max_depth)])
+
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.
+PIPE, text=True)
+
+        if result.returncode == 0:
+            output = result.stdout
+            # 仅在无层级限制时检查输出长度
+            if max_depth is None and len(output.encode()) > 2048:
+                return get_directory_context(max_depth=1)  # 递归调用回退到一层
+            return f"\n当前工作目录: {current_dir}\n\n目录结构:\n{output}"
+
+        # 当tree命令失败时使用ls
+        ls_result = subprocess.run(["ls", "-l"], stdout=subprocess.PIPE,
+text=True)
+        msg = ls_result.stdout or '无法获取目录信息'
+        return f"\n当前工作目录: {current_dir}\n\n目录结构:\n{msg}"
+
     except Exception as e:
         return f"获取目录上下文时出错: {str(e)}"
-
 
 def process_text_with_tree(text):
     """处理包含@tree的文本，获取目录上下文并附加"""
@@ -263,24 +256,24 @@ def get_clipboard_content():
             # Linux系统
             # 尝试xclip
             try:
-                process = subprocess.Popen(['xclip', '-selection', 'clipboard', '-o'], 
+                process = subprocess.Popen(['xclip', '-selection', 'clipboard', '-o'],
                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, _ = process.communicate()
                 if process.returncode == 0:
                     return stdout.decode('utf-8')
             except FileNotFoundError:
                 pass
-            
+
             # 尝试xsel
             try:
-                process = subprocess.Popen(['xsel', '--clipboard', '--output'], 
+                process = subprocess.Popen(['xsel', '--clipboard', '--output'],
                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, _ = process.communicate()
                 if process.returncode == 0:
                     return stdout.decode('utf-8')
             except FileNotFoundError:
                 pass
-            
+
             return "无法获取剪贴板内容：未找到xclip或xsel"
     except Exception as e:
         return f"获取剪贴板内容时出错: {str(e)}"
@@ -288,17 +281,19 @@ def get_clipboard_content():
 
 def process_text_with_file_path(text):
     """处理包含@...的文本，支持@cmd命令和@path文件路径"""
-    
+
     # 定义命令映射表
     cmd_map = {
         'clipboard': get_clipboard_content,
         "tree": get_directory_context,
+        'treefull': lambda: get_directory_context(max_depth=None),
+
     }
     # 使用正则表达式查找所有@开头的命令或路径
     matches = re.findall(r'@([^\s]+)', text)
     # 初始化内容列表
     contents = []
-    
+
     for match in matches:
         # 处理命令
         if match in cmd_map:
@@ -319,7 +314,7 @@ def process_text_with_file_path(text):
                 contents.append(f"\n\n无法读取文件 {match}: {str(e)}")
         else:
             contents.append(f"\n\n未找到命令或文件: {match}")
-    
+
     # 将处理结果附加到清理后的文本末尾
     return text + ''.join(contents)
 
@@ -330,10 +325,10 @@ def process_response(response_data, file_path, save=True):
         raise ValueError("API返回空响应")
 
     content = response_data['choices'][0]['message']['content']
-    
+
     # 获取文件扩展名
     ext = Path(file_path).suffix[1:] if Path(file_path).suffix else 'txt'
-    
+
     # 处理文件路径
     file_path = Path(file_path)
     if file_path.is_absolute():
@@ -347,10 +342,10 @@ def process_response(response_data, file_path, save=True):
         base_dir = Path(os.getenv("GROQ_DOC", os.getcwd()))
         save_dir = base_dir / "groq_responses" / relative_path.parent
         os.makedirs(save_dir, exist_ok=True)
-        
+
         base_name = os.path.basename(file_path).split(".")[0]
         save_path = save_dir / f"response-{base_name}-{ext}.md"
-        
+
         with open(save_path, 'w', encoding='utf-8') as f:
             f.write(content)
     else:
@@ -361,7 +356,7 @@ def process_response(response_data, file_path, save=True):
 
     if not check_deps_installed():
         sys.exit(1)
-    
+
     try:
         subprocess.run(["glow", save_path], check=True)
         # 如果是临时文件，使用后删除
