@@ -313,24 +313,27 @@ def process_text_with_file_path(text):
             except Exception as e:
                 contents.append(f"\n\n执行命令 {match} 失败: {str(e)}")
         # 处理文件路径
-        elif os.path.exists(match):
-            try:
-                with open(match, 'r', encoding='utf-8') as f:
-                    content = f.read(10240)  # 最多读取10k
-                contents.append(f"\n\n文件 {match} 内容:\n```\n{content}\n```")
-                text = text.replace(f"@{match}", "")
-            except Exception as e:
-                contents.append(f"\n\n无法读取文件 {match}: {str(e)}")
-        # 处理URL
-        elif match.startswith('http'):
-            try:
-                markdown_content = fetch_url_content(match)
-                contents.append(f"\n\n参考文档URL: {match} \n内容:\n{markdown_content}")
-                text = text.replace(f"@{match}", "")
-            except Exception as e:
-                contents.append(f"\n\n处理URL {match} 失败: {str(e)}")
         else:
-            contents.append(f"\n\n未找到命令、文件或URL: {match}")
+            # 尝试展开相对路径
+            expanded_path = os.path.abspath(os.path.expanduser(match))
+            if os.path.exists(expanded_path):
+                try:
+                    with open(expanded_path, 'r', encoding='utf-8') as f:
+                        content = f.read(10240)  # 最多读取10k
+                    contents.append(f"\n\n文件 {expanded_path} 内容:\n```\n{content}\n```")
+                    text = text.replace(f"@{match}", "")
+                except Exception as e:
+                    contents.append(f"\n\n无法读取文件 {expanded_path}: {str(e)}")
+            # 处理URL
+            elif match.startswith('http'):
+                try:
+                    markdown_content = fetch_url_content(match)
+                    contents.append(f"\n\n参考文档URL: {match} \n内容:\n{markdown_content}")
+                    text = text.replace(f"@{match}", "")
+                except Exception as e:
+                    contents.append(f"\n\n处理URL {match} 失败: {str(e)}")
+            else:
+                contents.append(f"\n\n未找到命令、文件或URL: {match}")
 
     # 将处理结果附加到清理后的文本末尾
     return text + ''.join(contents)
