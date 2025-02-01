@@ -67,3 +67,29 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
 // 初始化连接
 connectWebSocket();
+
+
+
+const keepAlive = () => {                                                     
+  // 初始创建第一个心跳alarm（20秒后触发）                                    
+  chrome.alarms.create('keep-alive', { delayInMinutes: 20 / 60 });            
+                                                                              
+  chrome.alarms.onAlarm.addListener((alarm) => {                              
+    if (alarm.name === 'keep-alive') {                                        
+      if (DEBUG) console.debug('💓 发送保持活跃心跳', new Date().             
+toLocaleTimeString());                                                          
+                                                                              
+      // 通过storage操作保持service worker活跃                                
+      chrome.storage.local.set({ keepAlive: Date.now() }, () => {             
+        // 每次操作完成后立即设置下一次心跳                                   
+        chrome.alarms.create('keep-alive', { delayInMinutes: 20 / 60 });      
+        if (DEBUG) console.debug('⏱ 已设置下一次心跳');                       
+      });                                                                     
+    }                                                                         
+  });                                                                         
+};                                                                            
+                                                                              
+// 初始化（保持原有事件监听）                                                 
+chrome.runtime.onStartup.addListener(keepAlive);                              
+chrome.runtime.onInstalled.addListener(keepAlive);  
+
