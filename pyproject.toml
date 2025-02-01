@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "openai>=1.61.0",
     "pysocks>=1.7.1",
     "requests>=2.32.3",
+    "socksio>=1.0.0",
 ]

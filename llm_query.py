@@ -9,7 +9,8 @@ import argparse
 from urllib.parse import urlparse
 from pathlib import Path
 import tempfile
-
+import re
+from openai import OpenAI
 
 def parse_arguments():
     """解析命令行参数"""
@@ -34,7 +35,7 @@ def parse_arguments():
     parser.add_argument(
         '--chunk-size',
         type=int,
-        default=16000,
+        default=32000,
         help='代码分块大小（字符数，仅在使用--file时有效）'
     )
     return parser.parse_args()
@@ -86,63 +87,44 @@ def split_code(content, chunk_size):
     return [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
 
 
-def query_groq_api(api_key, prompt, proxies=None):
-    """向Groq API发送流式查询请求"""
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
+def query_gpt_api(api_key, prompt, model="gpt-4", proxies=None, base_url=None):
+    """使用OpenAI API发送流式查询请求
 
-    payload = {
-        "messages": [{
-            "role": "user",
-            "content": prompt
-        }],
-        "model": "deepseek-r1-distill-llama-70b",
-        "temperature": 0.1,
-        "max_tokens": 4096,
-        "top_p": 0.95,
-        "stream": True
-    }
-
-    if any(url.startswith('socks') for url in (proxies or {}).values()):
-        try:
-            import socks
-        except ImportError:
-            print("错误：使用 SOCKS 代理需要安装 PySocks")
-            print("请执行：pip install pysocks")
-            sys.exit(1)
-
+    参数:
+        api_key (str): OpenAI API密钥
+        prompt (str): 提示词内容
+        model (str): 使用的模型，默认为gpt-4
+        proxies (dict): 代理配置
+        base_url (str): 自定义API基础URL
+    """
+    # 初始化OpenAI客户端
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url  # 添加base_url参数
+    )
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            proxies=proxies or None,
+        # 创建流式响应
+        stream = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=20480,
+            top_p=1,
             stream=True
         )
-        response.raise_for_status()
 
         content = ""
-        for chunk in response.iter_lines():
-            if chunk:
-                decoded_chunk = chunk.decode('utf-8')
-                if decoded_chunk.startswith("data:"):
-                    try:
-                        chunk_data = json.loads(decoded_chunk[5:])
-                        if "choices" in chunk_data and chunk_data["choices"]:
-                            delta = chunk_data["choices"][0].get("delta", {})
-                            if "content" in delta:
-                                print(delta["content"], end="", flush=True)
-                                content += delta["content"]
-                    except json.JSONDecodeError:
-                        continue
+        # 处理流式响应
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end="", flush=True)
+                content += chunk.choices[0].delta.content
 
         print()  # 换行
         return {"choices": [{"message": {"content": content}}]}
 
-    except requests.exceptions.RequestException as e:
-        print(f"API请求失败: {e}")
+    except Exception as e:
+        print(f"OpenAI API请求失败: {e}")
         sys.exit(1)
 
 def _check_tool_installed(tool_name, install_url=None, install_commands=None):
@@ -160,7 +142,7 @@ def _check_tool_installed(tool_name, install_url=None, install_commands=None):
     return True
 
 def check_deps_installed():
-    """检查glow和tree是否已安装"""
+    """检查glow、tree和剪贴板工具是否已安装"""
     try:
         # 检查glow
         glow_installed = _check_tool_installed(
@@ -180,7 +162,36 @@ def check_deps_installed():
                 "CentOS/Fedora: sudo yum install tree"
             ]
         )
-        return tree_installed
+        if not tree_installed:
+            return False
+            
+        # 检查剪贴板工具
+        if sys.platform == 'win32':
+            try:
+                import win32clipboard
+                return True
+            except ImportError:
+                print("错误：需要安装pywin32来访问Windows剪贴板")
+                print("请执行：pip install pywin32")
+                return False
+        elif sys.platform == 'darwin':
+            return True  # macOS自带pbpaste
+        else:
+            # Linux系统
+            clipboard_installed = _check_tool_installed(
+                "xclip",
+                install_commands=[
+                    "Ubuntu/Debian: sudo apt install xclip",
+                    "CentOS/Fedora: sudo yum install xclip"
+                ]
+            ) or _check_tool_installed(
+                "xsel",
+                install_commands=[
+                    "Ubuntu/Debian: sudo apt install xsel",
+                    "CentOS/Fedora: sudo yum install xsel"
+                ]
+            )
+            return clipboard_installed
             
     except Exception:
         return False
@@ -231,31 +242,86 @@ def process_text_with_tree(text):
         text = f"{text}\n{dir_context}"
     return text
 
-import pdb
-def process_text_with_file_path(text):
-    """处理包含@...的文本，附加文件内容"""
-    import re
-    
-    # 使用正则表达式查找所有@开头的路径
-    matches = re.findall(r'@([^\s]+)', text)
-    # 初始化文件内容列表
-    file_contents = []
-    # 处理每个匹配的路径
-    for file_path in matches:
-        if os.path.exists(file_path):
+
+def get_clipboard_content():
+    """获取系统剪贴板内容，支持Linux、Mac、Windows"""
+    try:
+        # 判断操作系统
+        if sys.platform == 'win32':
+            # Windows系统
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            data = win32clipboard.GetClipboardData()
+            win32clipboard.CloseClipboard()
+            return data
+        elif sys.platform == 'darwin':
+            # Mac系统
+            process = subprocess.Popen(['pbpaste'], stdout=subprocess.PIPE)
+            stdout, _ = process.communicate()
+            return stdout.decode('utf-8')
+        else:
+            # Linux系统
+            # 尝试xclip
             try:
-                # 读取文件内容
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read(10240)  # 最多读取10k
-                # 将文件内容添加到列表
-                file_contents.append(f"\n\n文件 {file_path} 内容:\n```\n{content}\n```")
-                # 只删除实际存在的文件路径
-                text = text.replace(f"@{file_path}", "")
-            except Exception as e:
-                file_contents.append(f"\n\n无法读取文件 {file_path}: {str(e)}")
+                process = subprocess.Popen(['xclip', '-selection', 'clipboard', '-o'], 
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, _ = process.communicate()
+                if process.returncode == 0:
+                    return stdout.decode('utf-8')
+            except FileNotFoundError:
+                pass
+            
+            # 尝试xsel
+            try:
+                process = subprocess.Popen(['xsel', '--clipboard', '--output'], 
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                stdout, _ = process.communicate()
+                if process.returncode == 0:
+                    return stdout.decode('utf-8')
+            except FileNotFoundError:
+                pass
+            
+            return "无法获取剪贴板内容：未找到xclip或xsel"
+    except Exception as e:
+        return f"获取剪贴板内容时出错: {str(e)}"
+
+
+def process_text_with_file_path(text):
+    """处理包含@...的文本，支持@cmd命令和@path文件路径"""
     
-    # 将文件内容附加到清理后的文本末尾
-    return text + ''.join(file_contents)
+    # 定义命令映射表
+    cmd_map = {
+        'clipboard': get_clipboard_content,
+        "tree": get_directory_context,
+    }
+    # 使用正则表达式查找所有@开头的命令或路径
+    matches = re.findall(r'@([^\s]+)', text)
+    # 初始化内容列表
+    contents = []
+    
+    for match in matches:
+        # 处理命令
+        if match in cmd_map:
+            try:
+                result = cmd_map[match]()
+                contents.append(result)
+                text = text.replace(f"@{match}", "")
+            except Exception as e:
+                contents.append(f"\n\n执行命令 {match} 失败: {str(e)}")
+        # 处理文件路径
+        elif os.path.exists(match):
+            try:
+                with open(match, 'r', encoding='utf-8') as f:
+                    content = f.read(10240)  # 最多读取10k
+                contents.append(f"\n\n文件 {match} 内容:\n```\n{content}\n```")
+                text = text.replace(f"@{match}", "")
+            except Exception as e:
+                contents.append(f"\n\n无法读取文件 {match}: {str(e)}")
+        else:
+            contents.append(f"\n\n未找到命令或文件: {match}")
+    
+    # 将处理结果附加到清理后的文本末尾
+    return text + ''.join(contents)
 
 
 def process_response(response_data, file_path, save=True):
@@ -308,6 +374,25 @@ def process_response(response_data, file_path, save=True):
 def main():
     args = parse_arguments()
 
+    # 集中检查环境变量
+    api_key = os.getenv("GPT_KEY")
+    if not api_key:
+        print("错误：未设置GPT_KEY环境变量")
+        sys.exit(1)
+
+    base_url = os.getenv("GPT_BASE_URL")
+    if not base_url:
+        print("错误：未设置GPT_BASE_URL环境变量")
+        sys.exit(1)
+    try:
+        parsed_url = urlparse(base_url)
+        if not all([parsed_url.scheme, parsed_url.netloc]):
+            print(f"错误：GPT_BASE_URL不是有效的URL: {base_url}")
+            sys.exit(1)
+    except Exception as e:
+        print(f"错误：解析GPT_BASE_URL失败: {e}")
+        sys.exit(1)
+
     if not args.ask:  # 仅在未使用--ask参数时检查文件
         if not os.path.isfile(args.file):
             print(f"错误：源代码文件不存在 {args.file}")
@@ -316,11 +401,6 @@ def main():
         if not os.path.isfile(args.prompt_file):
             print(f"错误：提示词文件不存在 {args.prompt_file}")
             sys.exit(1)
-
-    api_key = os.getenv("GROQ_KEY")
-    if not api_key:
-        print("错误：未设置GROQ_KEY环境变量")
-        sys.exit(1)
 
     proxies, proxy_sources = detect_proxies()
     if proxies:
@@ -333,12 +413,14 @@ def main():
             print(f"  └─ {'via'.ljust(max_len)} : {source_var}")
     else:
         print("ℹ️ 未检测到代理配置")
+
     if args.ask:
-        text = process_text_with_file_path(process_text_with_tree(args.ask))
+        text = process_text_with_file_path(args.ask)
         print(text)
-        response_data = query_groq_api(api_key, text, proxies)
+        response_data = query_gpt_api(api_key, text, proxies=proxies, model=os.environ["GPT_MODEL"], base_url=base_url)
         process_response(response_data, "", save=False)
         return
+
     try:
         with open(args.prompt_file, 'r', encoding='utf-8') as f:
             prompt_template = f.read().strip()
@@ -355,14 +437,14 @@ def main():
                 pager = f"这是代码的第 {i}/{total_chunks} 部分：\n\n"
                 print(pager)
                 chunk_prompt = prompt_template.format(path=args.file, pager=pager, code=chunk)
-                response_data = query_groq_api(api_key, chunk_prompt, proxies)
+                response_data = query_gpt_api(api_key, chunk_prompt, proxies=proxies, model=os.environ["GPT_MODEL"], base_url=base_url)
                 response_pager = f"\n这是回答的第 {i}/{total_chunks} 部分：\n\n"
                 responses.append(response_pager+response_data['choices'][0]['message']['content'])
             final_content = "\n\n".join(responses)
             response_data = {'choices': [{'message': {'content': final_content}}]}
         else:
             full_prompt = prompt_template.format(path=args.file, pager="", code=code_content)
-            response_data = query_groq_api(api_key, full_prompt, proxies)
+            response_data = query_gpt_api(api_key, full_prompt, proxies=proxies, model=os.environ["GPT_MODEL"], base_url=base_url)
 
         process_response(response_data, args.file)
 
