@@ -279,15 +279,24 @@ def get_clipboard_content():
         return f"获取剪贴板内容时出错: {str(e)}"
 
 
+def fetch_url_content(url):
+    """通过API获取URL对应的Markdown内容"""
+    try:
+        api_url = f"http://127.0.0.1:8000/convert?url={url}"
+        response = requests.get(api_url)
+        response.raise_for_status()
+        return response.text
+    except Exception as e:
+        return f"获取URL内容失败: {str(e)}"
+
 def process_text_with_file_path(text):
-    """处理包含@...的文本，支持@cmd命令和@path文件路径"""
+    """处理包含@...的文本，支持@cmd命令、@path文件路径和@http网址"""
 
     # 定义命令映射表
     cmd_map = {
         'clipboard': get_clipboard_content,
         "tree": get_directory_context,
         'treefull': lambda: get_directory_context(max_depth=None),
-
     }
     # 使用正则表达式查找所有@开头的命令或路径
     matches = re.findall(r'@([^\s]+)', text)
@@ -312,8 +321,16 @@ def process_text_with_file_path(text):
                 text = text.replace(f"@{match}", "")
             except Exception as e:
                 contents.append(f"\n\n无法读取文件 {match}: {str(e)}")
+        # 处理URL
+        elif match.startswith('http'):
+            try:
+                markdown_content = fetch_url_content(match)
+                contents.append(f"\n\n参考文档URL: {match} \n内容:\n{markdown_content}")
+                text = text.replace(f"@{match}", "")
+            except Exception as e:
+                contents.append(f"\n\n处理URL {match} 失败: {str(e)}")
         else:
-            contents.append(f"\n\n未找到命令或文件: {match}")
+            contents.append(f"\n\n未找到命令、文件或URL: {match}")
 
     # 将处理结果附加到清理后的文本末尾
     return text + ''.join(contents)
