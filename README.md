@@ -5,12 +5,13 @@
 
 ## 功能特性
 
-- **代码文件分析**：支持直接分析本地源代码文件
+- **代码文件分析**：替代view, vim, 用大模型分析本地源代码文件
 - **智能问答**：提供自然语言交互的问答功能
 - **上下文集成**：
   - 剪贴板内容自动读取 (`@clipboard`)
   - 目录结构查看 (`@tree`/`@treefull`)
   - 文件内容嵌入 (`@文件路径`)
+  - 网页内容嵌入 (`@http://example.com`)
 - **网页内容转换**：内置Web服务器提供HTML转Markdown服务
   - 浏览器扩展集成支持
   - 实时WebSocket通信
@@ -18,6 +19,24 @@
 - **智能分块处理**：自动处理大文件分块分析
 - **代理支持**：完善的HTTP代理配置检测
 - **流式响应**：实时显示API响应内容
+
+**上下文嵌入语法**
+```bash
+# 分析剪贴板内容
+askgpt "解释这段代码：@clipboard"
+
+# 附加当前目录结构
+askgpt "@tree，请分析主要模块"
+
+# 附加当前目录结构全部
+askgpt "@treefull，请分析主要模块"
+
+# 嵌入文件内容
+askgpt "请优化这个配置文件：@config/settings.yaml"
+
+# 访问网页
+askgpt @https://tree-sitter.github.io/tree-sitter/using-parsers/1-getting-started.html 归纳这个文档
+```
 
 
 ## 安装与配置
@@ -71,20 +90,6 @@ python server/server.py
 curl "http://localhost:8000/convert?url=当前页面URL"
 ```
 
-**上下文嵌入语法**
-```bash
-# 分析剪贴板内容
-askgpt "解释这段代码：@clipboard"
-
-# 附加当前目录结构
-askgpt "@tree，请分析主要模块"
-
-# 附加当前目录结构全部
-askgpt "@treefull，请分析主要模块"
-
-# 嵌入文件内容
-askgpt "请优化这个配置文件：@config/settings.yaml"
-```
 
 ### 提示词模板
 
