@@ -73,7 +73,7 @@ class ConvertHandler(web.RequestHandler):
                 }))
 
                 html = await gen.with_timeout(
-                    ioloop.IOLoop.current().time() + 30,
+                    ioloop.IOLoop.current().time() + 60,
                     fut
                 )
                 logger.debug(f"📥 收到HTML响应，长度: {len(html)} 字符")

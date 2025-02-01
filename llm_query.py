@@ -316,7 +316,7 @@ def process_text_with_file_path(text):
         else:
             # 尝试展开相对路径
             expanded_path = os.path.abspath(os.path.expanduser(match))
-            
+
             # 优先检查prompts目录下的文件
             prompts_path = os.path.join(os.path.dirname(__file__), 'prompts', match)
             if os.path.exists(prompts_path):
@@ -341,7 +341,7 @@ def process_text_with_file_path(text):
             elif match.startswith('http'):
                 try:
                     markdown_content = fetch_url_content(match)
-                    contents.append(f"\n\n参考文档URL: {match} \n内容:\n{markdown_content}")
+                    contents.append(f"\n\n参考文档URL: {match} \n内容(已经转换成markdown):\n{markdown_content}")
                     text = text.replace(f"@{match}", "")
                 except Exception as e:
                     contents.append(f"\n\n处理URL {match} 失败: {str(e)}")
