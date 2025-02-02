@@ -17,7 +17,6 @@ from pygments import highlight
 from pygments.lexers import DiffLexer
 from pygments.formatters import TerminalFormatter
 
-
 def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
@@ -37,6 +36,11 @@ def parse_arguments():
         type=int,
         default=32000,
         help="代码分块大小（字符数，仅在使用--file时有效）",
+    )
+    parser.add_argument(
+        "--obsidian-doc",
+        default=os.path.join(os.path.dirname(__file__), "obsidian"),
+        help="Obsidian文档备份目录路径",
     )
     return parser.parse_args()
 
@@ -455,17 +459,8 @@ def extract_and_diff_files(content):
                 print("已成功应用变更")
             except subprocess.CalledProcessError as e:
                 print(f"应用变更失败: {e}")
-
-        # # 无论是否应用，都删除.shadowroot目录
-        # try:
-        #     import shutil
-        #     shutil.rmtree(shadowroot)
-        #     print("已清理临时文件")
-        # except Exception as e:
-        #     print(f"清理临时文件时出错: {e}")
-
-
-def process_response(response_data, file_path, save=True):
+                
+def process_response(response_data, file_path, save=True, obsidian_doc=None, ask_param=None):
     """处理API响应并保存结果"""
     if not response_data["choices"]:
         raise ValueError("API返回空响应")
@@ -502,11 +497,36 @@ def process_response(response_data, file_path, save=True):
             tmp_file.write(content)
             save_path = tmp_file.name
 
+    # 处理Obsidian文档存储
+    if obsidian_doc:
+        obsidian_dir = Path(obsidian_doc)
+        obsidian_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 创建按年月分组的子目录
+        now = time.localtime()
+        month_dir = obsidian_dir / f"{now.tm_year}-{now.tm_mon}"
+        month_dir.mkdir(exist_ok=True)
+        
+        # 生成时间戳文件名
+        timestamp = f"{now.tm_hour}-{now.tm_min}-{now.tm_sec}.md"
+        obsidian_file = month_dir / timestamp
+        
+        # 写入响应内容
+        with open(obsidian_file, "w", encoding="utf-8") as f:
+            f.write(content)
+        
+        # 更新main.md
+        main_file = obsidian_dir / "索引.md"
+        link_name = ask_param[:256] if ask_param else timestamp
+        link = f"[[{month_dir.name}/{timestamp}|{link_name}]]\n"
+        
+        with open(main_file, "a", encoding="utf-8") as f:
+            f.write(link)
+
     if not check_deps_installed():
         sys.exit(1)
 
     # 调用提取和diff函数
-
     try:
         subprocess.run(["glow", save_path], check=True)
         # 如果是临时文件，使用后删除
@@ -575,7 +595,7 @@ def main():
             model=os.environ["GPT_MODEL"],
             base_url=base_url,
         )
-        process_response(response_data, "", save=False)
+        process_response(response_data, "", save=False, obsidian_doc= args.obsidian_doc, ask_param=args.ask)
         return
 
     try:
@@ -620,8 +640,7 @@ def main():
                 model=os.environ["GPT_MODEL"],
                 base_url=base_url,
             )
-
-        process_response(response_data, args.file)
+        process_response(response_data, args.file, obsidian_doc= args.obsidian_doc, ask_param=args.ask)
 
     except Exception as e:
         print(f"运行时错误: {e}")
