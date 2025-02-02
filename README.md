@@ -1,34 +1,16 @@
 
 # terminal LLM
 
-一个基于大模型的智能终端代码分析与问答工具，提供便捷的命令行交互和上下文感知功能。
+一个基于deepseek r1 api的终端辅助工具，提供便捷的命令行交互和上下文感知功能, 目标是命令行版本的cursor, windsurf。
 
 ## 使用场景
-```bash
-#灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入   
-askgpt @advice @llm_query.py @clipboard  修复其中可能的bug   
-```
-
-## 功能特性
-
-- **代码文件分析**：替代view, vim, 用大模型分析本地源代码文件, 提供代码修改建议    
-- **上下文集成**：
-  - 剪贴板内容自动读取 (`@clipboard`)
-  - 目录结构查看 (`@tree`/`@treefull`)
-  - 文件内容嵌入 (`@文件路径`)
-  - 网页内容嵌入 (`@http://example.com`)
-  - 常用prompt引用 (`@advice`...)
-- **网页内容转换**：内置Web服务提供HTML转Markdown
-  - 浏览器扩展集成支持, 绕过cloudflare干扰
-  - 自动内容提取与格式转换
-- **代理支持**：完善的HTTP代理配置检测
-- **流式响应**：实时显示API响应内容
-
-**上下文嵌入语法**     
 一个askgpt后边可以用多个@，混合构成上下文, 可以一边使用网址，同时加入文件内容，不必带"号    
 ```bash
 # 分析剪贴板内容
 askgpt 解释这段代码：@clipboard @tree
+
+#命令建议
+askgpt @cmd 找到2小时前的所有文件, 并全部删除
 
 # 附加当前目录结构
 askgpt "@tree，请分析主要模块"
@@ -44,8 +26,26 @@ askgpt @https://tree-sitter.github.io/tree-sitter/using-parsers/1-getting-starte
 
 # 嵌入常用提示词, 文件放到在prompts/目录
 askgpt @advice #这个提示器是让gpt提供修改建议
+
+#灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入   
+askgpt @advice @llm_query.py @clipboard  修复其中可能的bug   
 ```
 
+## 功能特性
+
+- **代码文件分析**：替代view, vim, 用大模型分析本地源代码文件, 提供代码修改建议    
+- **上下文集成**：
+  - 剪贴板内容自动读取 (`@clipboard`)
+  - 目录结构查看 (`@tree`/`@treefull`)
+  - 文件内容嵌入 (`@文件路径`)
+  - 网页内容嵌入 (`@http://example.com`)
+  - 常用prompt引用 (`@advice`...)
+  - 命令行建议 (`@cmd`)
+- **网页内容转换**：内置Web服务提供HTML转Markdown
+  - 浏览器扩展集成支持, 绕过cloudflare干扰
+  - 自动内容提取与格式转换
+- **代理支持**：完善的HTTP代理配置检测
+- **流式响应**：实时显示API响应内容
 
 ## 安装与配置
 
@@ -92,6 +92,7 @@ askgpt "如何实现快速排序算法？"
 **网页内容转换服务**
 ```bash
 # 启动转换服务器（默认端口8000), 用https://github.com/microsoft/markitdown实现
+# 支持--addr, --port, 需要在插件option里也改
 python server/server.py
 
 # 调用转换接口（需配合浏览器扩展使用），server/plugin加载到浏览器
@@ -152,7 +153,7 @@ groq/
 
 4. **网页转换服务依赖**：
    - 需要安装Chrome浏览器扩展配合使用
-   - 确保8000端口未被占用
+   - 确保8000端口未被占用, 或者在插件配置option页改地址
    - 转换服务仅接受本地连接
 
 ## 示例
