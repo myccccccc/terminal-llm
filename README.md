@@ -4,8 +4,12 @@
 一个基于deepseek r1 api的终端辅助工具，提供便捷的命令行交互和上下文感知功能, 目标是命令行版本的cursor, windsurf。
 
 ## 使用场景
-一个askgpt后边可以用多个@，混合构成上下文, 可以一边使用网址，同时加入文件内容，不必带"号    
+一个askgpt后边可以用多个@，混合构成上下文, 可以一边使用网址，同时加入文件内容，不必带""号    
 ```bash
+
+# 修改代码的bug,会生成一个diff, 看你要不要使用patch
+askgpt @edit @main.py 找到其中可能的bug，并加以修复
+
 # 分析剪贴板内容
 askgpt 解释这段代码：@clipboard @tree
 
@@ -41,6 +45,7 @@ askgpt @advice @llm_query.py @clipboard  修复其中可能的bug
   - 网页内容嵌入 (`@http://example.com`)
   - 常用prompt引用 (`@advice`...)
   - 命令行建议 (`@cmd`)
+  - 代码编辑 (`edit`)
 - **网页内容转换**：内置Web服务提供HTML转Markdown
   - 浏览器扩展集成支持, 绕过cloudflare干扰
   - 自动内容提取与格式转换

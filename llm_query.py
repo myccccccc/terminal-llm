@@ -12,6 +12,10 @@ import tempfile
 import re
 from openai import OpenAI
 import platform
+import difflib
+from pygments import highlight
+from pygments.lexers import DiffLexer
+from pygments.formatters import TerminalFormatter
 
 def parse_arguments():
     """解析命令行参数"""
@@ -148,7 +152,7 @@ def _check_tool_installed(tool_name, install_url=None, install_commands=None):
 def check_deps_installed():
     """检查glow、tree和剪贴板工具是否已安装"""
     all_installed = True
-    
+
     # 检查glow
     if not _check_tool_installed(
         "glow",
@@ -204,9 +208,9 @@ def get_directory_context(max_depth=1):
         if max_depth is not None:
             cmd.extend(["-L", str(max_depth)])
 
-        result = subprocess.run(cmd, 
-                              stdout=subprocess.PIPE, 
-                              stderr=subprocess.PIPE, 
+        result = subprocess.run(cmd,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
                               text=True)
 
         if result.returncode == 0:
@@ -290,7 +294,12 @@ def fetch_url_content(url):
         return response.text
     except Exception as e:
         return f"获取URL内容失败: {str(e)}"
-    
+
+
+USER_PROMPT_CONTEXT = {
+    "edit": False,
+}
+
 def process_text_with_file_path(text):
     """处理包含@...的文本，支持@cmd命令、@path文件路径、@http网址和prompts目录下的模板文件"""
 
@@ -300,7 +309,7 @@ def process_text_with_file_path(text):
         "tree": get_directory_context,
         'treefull': lambda: get_directory_context(max_depth=None),
     }
-    
+
     # 定义环境变量
     env_vars = {
         'os': sys.platform,
@@ -313,13 +322,17 @@ def process_text_with_file_path(text):
 
     for match in matches:
         match_key = f"@{match} "
+        # 如果match在context里，将context设为true
+        if match in USER_PROMPT_CONTEXT:
+            USER_PROMPT_CONTEXT[match] = True
         try:
+
             # 处理命令
             if match in cmd_map:
                 result = cmd_map[match]()
                 text = text.replace(match_key, result)
                 continue
-            
+
             # 尝试展开相对路径
             expanded_path = os.path.abspath(os.path.expanduser(match))
 
@@ -335,7 +348,7 @@ def process_text_with_file_path(text):
 
             if os.path.exists(expanded_path):
                 with open(expanded_path, 'r', encoding='utf-8') as f:
-                    content = f.read(10240)  # 最多读取10k
+                    content = f.read(32000)  # 最多读取32k
                 text = text.replace(match_key, f"\n\n文件 {expanded_path} 内容:\n```\n{content}\n```\n\n")
                 continue
 
@@ -355,6 +368,84 @@ def process_text_with_file_path(text):
 
     return text
 
+
+def extract_and_diff_files(content):
+    """从内容中提取文件并生成diff"""
+    # 提取文件内容并保存
+    matches = re.findall(r"@([^\n]+)\n(.*)?\n@\1", content, re.S)
+    if not matches:
+        return
+
+    # 创建shadowroot目录
+    shadowroot = Path(".shadowroot")
+    shadowroot.mkdir(exist_ok=True)
+    
+    # 用于存储diff内容
+    diff_content = ""
+    
+    for filename, file_content in matches:
+        # 处理文件路径
+        file_path = Path(filename)
+        old_file_path = file_path
+        # 如果是绝对路径，转换为相对路径
+        if file_path.is_absolute():
+            parts = file_path.parts[1:]
+            file_path = Path(*parts)
+        # 组合到shadowroot目录
+        shadow_file_path = shadowroot / file_path
+        # 创建父目录
+        shadow_file_path.parent.mkdir(parents=True, exist_ok=True)
+        # 写入文件内容
+        with open(shadow_file_path, 'w', encoding='utf-8') as f:
+            f.write(file_content)
+        print(f"已保存文件到: {shadow_file_path}")
+        
+        # 生成unified diff
+        if old_file_path.exists():
+            with open(old_file_path, 'r', encoding='utf-8') as orig_file:
+                original_content = orig_file.read()
+                diff = difflib.unified_diff(
+                    original_content.splitlines(),
+                    file_content.splitlines(),
+                    fromfile=str(old_file_path),
+                    tofile=str(shadow_file_path),
+                    lineterm=''
+                )
+                diff_content += '\n'.join(diff) + '\n\n'
+    # 将diff写入文件
+    if diff_content:
+        diff_file = shadowroot / "changes.diff"
+        with open(diff_file, 'w', encoding='utf-8') as f:
+            f.write(diff_content)
+        print(f"已生成diff文件: {diff_file}")
+    # 检查是否存在diff文件
+    diff_file = shadowroot / "changes.diff"
+    if diff_file.exists():
+        # 使用pygments高亮显示diff内容
+        with open(diff_file, 'r', encoding='utf-8') as f:
+            diff_text = f.read()
+            highlighted_diff = highlight(diff_text, DiffLexer(), TerminalFormatter())
+            print("\n高亮显示的diff内容：")
+            print(highlighted_diff)
+        # 询问用户是否应用diff
+        print(f"\n申请变更文件，是否应用 {diff_file}？")
+        apply = input("输入 y 应用，其他键跳过: ").lower()
+        if apply == 'y':
+            # 应用diff
+            try:
+                subprocess.run(["patch", "-p0", "-i", str(diff_file)], check=True)
+                print("已成功应用变更")
+            except subprocess.CalledProcessError as e:
+                print(f"应用变更失败: {e}")
+        
+        # 无论是否应用，都删除.shadowroot目录
+        try:
+            import shutil
+            shutil.rmtree(shadowroot)
+            print("已清理临时文件")
+        except Exception as e:
+            print(f"清理临时文件时出错: {e}")
+
 def process_response(response_data, file_path, save=True):
     """处理API响应并保存结果"""
     if not response_data['choices']:
@@ -368,7 +459,7 @@ def process_response(response_data, file_path, save=True):
     # 处理文件路径
     file_path = Path(file_path)
     if file_path.is_absolute():
-        parts = file_path.parts[-2:]
+        parts = file_path.parts[1:]
         relative_path = Path(*parts)
     else:
         relative_path = file_path
@@ -392,7 +483,9 @@ def process_response(response_data, file_path, save=True):
 
     if not check_deps_installed():
         sys.exit(1)
-
+        
+    # 调用提取和diff函数
+    
     try:
         subprocess.run(["glow", save_path], check=True)
         # 如果是临时文件，使用后删除
@@ -401,6 +494,9 @@ def process_response(response_data, file_path, save=True):
     except subprocess.CalledProcessError as e:
         print(f"glow运行失败: {e}")
         sys.exit(1)
+
+    extract_and_diff_files(content)
+
 
 def main():
     args = parse_arguments()
