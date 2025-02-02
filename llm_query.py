@@ -63,7 +63,8 @@ def detect_proxies():
         ('all', ['all_proxy', 'ALL_PROXY'])
     ]
 
-    for protocol, vars in proxy_vars:
+    # 修改代理检测顺序，先处理具体协议再处理all_proxy
+    for protocol, vars in reversed(proxy_vars):
         for var in vars:
             if var in os.environ and os.environ[var]:
                 url = os.environ[var]
@@ -83,7 +84,9 @@ def detect_proxies():
 
 
 def split_code(content, chunk_size):
-    """将代码内容分割成指定大小的块"""
+    """将代码内容分割成指定大小的块
+    注意：当前实现适用于英文字符场景，如需支持多语言建议改用更好的分块算法
+    """
     return [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
 
 
@@ -143,58 +146,53 @@ def _check_tool_installed(tool_name, install_url=None, install_commands=None):
 
 def check_deps_installed():
     """检查glow、tree和剪贴板工具是否已安装"""
-    try:
-        # 检查glow
-        glow_installed = _check_tool_installed(
-            "glow",
-            install_url="https://github.com/charmbracelet/glow",
-            install_commands=["brew install glow"]
-        )
-        if not glow_installed:
-            return False
+    all_installed = True
+    
+    # 检查glow
+    if not _check_tool_installed(
+        "glow",
+        install_url="https://github.com/charmbracelet/glow",
+        install_commands=["brew install glow"]
+    ):
+        all_installed = False
 
-        # 检查tree
-        tree_installed = _check_tool_installed(
-            "tree",
+    # 检查tree
+    if not _check_tool_installed(
+        "tree",
+        install_commands=[
+            "macOS: brew install tree",
+            "Ubuntu/Debian: sudo apt install tree",
+            "CentOS/Fedora: sudo yum install tree"
+        ]
+    ):
+        all_installed = False
+
+    # 检查剪贴板工具
+    if sys.platform == 'win32':
+        try:
+            import win32clipboard
+        except ImportError:
+            print("错误：需要安装pywin32来访问Windows剪贴板")
+            print("请执行：pip install pywin32")
+            all_installed = False
+    elif sys.platform != 'darwin':  # Linux系统
+        clipboard_installed = _check_tool_installed(
+            "xclip",
             install_commands=[
-                "macOS: brew install tree",
-                "Ubuntu/Debian: sudo apt install tree",
-                "CentOS/Fedora: sudo yum install tree"
+                "Ubuntu/Debian: sudo apt install xclip",
+                "CentOS/Fedora: sudo yum install xclip"
+            ]
+        ) or _check_tool_installed(
+            "xsel",
+            install_commands=[
+                "Ubuntu/Debian: sudo apt install xsel",
+                "CentOS/Fedora: sudo yum install xsel"
             ]
         )
-        if not tree_installed:
-            return False
+        if not clipboard_installed:
+            all_installed = False
 
-        # 检查剪贴板工具
-        if sys.platform == 'win32':
-            try:
-                import win32clipboard
-                return True
-            except ImportError:
-                print("错误：需要安装pywin32来访问Windows剪贴板")
-                print("请执行：pip install pywin32")
-                return False
-        elif sys.platform == 'darwin':
-            return True  # macOS自带pbpaste
-        else:
-            # Linux系统
-            clipboard_installed = _check_tool_installed(
-                "xclip",
-                install_commands=[
-                    "Ubuntu/Debian: sudo apt install xclip",
-                    "CentOS/Fedora: sudo yum install xclip"
-                ]
-            ) or _check_tool_installed(
-                "xsel",
-                install_commands=[
-                    "Ubuntu/Debian: sudo apt install xsel",
-                    "CentOS/Fedora: sudo yum install xsel"
-                ]
-            )
-            return clipboard_installed
-
-    except Exception:
-        return False
+    return all_installed
 
 
 def get_directory_context(max_depth=1):
@@ -205,8 +203,10 @@ def get_directory_context(max_depth=1):
         if max_depth is not None:
             cmd.extend(["-L", str(max_depth)])
 
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.
-PIPE, text=True)
+        result = subprocess.run(cmd, 
+                              stdout=subprocess.PIPE, 
+                              stderr=subprocess.PIPE, 
+                              text=True)
 
         if result.returncode == 0:
             output = result.stdout
@@ -216,8 +216,9 @@ PIPE, text=True)
             return f"\n当前工作目录: {current_dir}\n\n目录结构:\n{output}"
 
         # 当tree命令失败时使用ls
-        ls_result = subprocess.run(["ls", "-l"], stdout=subprocess.PIPE,
-text=True)
+        ls_result = subprocess.run(["ls", "-l"],
+                                 stdout=subprocess.PIPE,
+                                 text=True)
         msg = ls_result.stdout or '无法获取目录信息'
         return f"\n当前工作目录: {current_dir}\n\n目录结构:\n{msg}"
 
@@ -288,7 +289,8 @@ def fetch_url_content(url):
         return response.text
     except Exception as e:
         return f"获取URL内容失败: {str(e)}"
-
+    
+    
 def process_text_with_file_path(text):
     """处理包含@...的文本，支持@cmd命令、@path文件路径、@http网址和prompts目录下的模板文件"""
 
@@ -300,57 +302,48 @@ def process_text_with_file_path(text):
     }
     # 使用正则表达式查找所有@开头的命令或路径
     matches = re.findall(r'@([^\s]+)', text)
-    # 初始化内容列表
-    contents = []
 
     for match in matches:
-        # 处理命令
-        if match in cmd_map:
-            try:
+        match_key = f"@{match} "
+        try:
+            # 处理命令
+            if match in cmd_map:
                 result = cmd_map[match]()
-                contents.append(result)
-                text = text.replace(f"@{match}", "")
-            except Exception as e:
-                contents.append(f"\n\n执行命令 {match} 失败: {str(e)}")
-        # 处理文件路径
-        else:
+                text = text.replace(match_key, result)
+                continue
+            
             # 尝试展开相对路径
             expanded_path = os.path.abspath(os.path.expanduser(match))
 
             # 优先检查prompts目录下的文件
             prompts_path = os.path.join(os.path.dirname(__file__), 'prompts', match)
             if os.path.exists(prompts_path):
-                try:
-                    with open(prompts_path, 'r', encoding='utf-8') as f:
-                        content = f.read(10240)  # 最多读取10k
-                    contents.append(f"\n{content}\n")
-                    text = text.replace(f"@{match}", "")
-                    continue
-                except Exception as e:
-                    contents.append(f"\n\n无法读取提示词模板 {prompts_path}: {str(e)}")
-                    continue
+                with open(prompts_path, 'r', encoding='utf-8') as f:
+                    content = f.read(10240)  # 最多读取10k
+                text = text.replace(match_key, f"\n{content}\n")
+                continue
+
             if os.path.exists(expanded_path):
-                try:
-                    with open(expanded_path, 'r', encoding='utf-8') as f:
-                        content = f.read(10240)  # 最多读取10k
-                    contents.append(f"\n\n文件 {expanded_path} 内容:\n```\n{content}\n```")
-                    text = text.replace(f"@{match}", "")
-                except Exception as e:
-                    contents.append(f"\n\n无法读取文件 {expanded_path}: {str(e)}")
+                with open(expanded_path, 'r', encoding='utf-8') as f:
+                    content = f.read(10240)  # 最多读取10k
+                text = text.replace(match_key, f"\n\n文件 {expanded_path} 内容:\n```\n{content}\n```\n\n")
+                continue
+
             # 处理URL
-            elif match.startswith('http'):
-                try:
-                    markdown_content = fetch_url_content(match)
-                    contents.append(f"\n\n参考文档URL: {match} \n内容(已经转换成markdown):\n{markdown_content}")
-                    text = text.replace(f"@{match}", "")
-                except Exception as e:
-                    contents.append(f"\n\n处理URL {match} 失败: {str(e)}")
-            else:
-                contents.append(f"\n\n未找到命令、文件或URL: {match}")
+            if match.startswith('http'):
+                markdown_content = fetch_url_content(match)
+                text = text.replace(match_key, f"\n\n参考文档URL: {match} \n内容(已经转换成markdown):\n{markdown_content}\n\n")
+                continue
 
-    # 将处理结果附加到清理后的文本末尾
-    return text + ''.join(contents)
+            # 未找到匹配项
+            print(f"错误：未找到命令、文件或URL: {match}")
+            sys.exit(1)
 
+        except Exception as e:
+            print(f"处理 {match} 时出错: {str(e)}")
+            sys.exit(1)
+
+    return text
 
 def process_response(response_data, file_path, save=True):
     """处理API响应并保存结果"""
