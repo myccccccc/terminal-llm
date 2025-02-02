@@ -204,7 +204,7 @@ def get_directory_context(max_depth=1):
     """获取当前目录上下文信息（支持动态层级控制）"""
     try:
         current_dir = os.getcwd()
-        cmd = ["tree"]
+        cmd = ["tree", '-I ".*"']
         if max_depth is not None:
             cmd.extend(["-L", str(max_depth)])
 
