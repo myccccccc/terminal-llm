@@ -3,20 +3,24 @@
 
 一个基于大模型的智能终端代码分析与问答工具，提供便捷的命令行交互和上下文感知功能。
 
+## 使用场景
+```bash
+#灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入   
+askgpt @advice @llm_query.py @clipboard  修复其中可能的bug   
+```
+
 ## 功能特性
 
-- **代码文件分析**：替代view, vim, 用大模型分析本地源代码文件, 针对性提问
-- **智能问答**：提供自然语言交互的问答功能
+- **代码文件分析**：替代view, vim, 用大模型分析本地源代码文件, 提供代码修改建议    
 - **上下文集成**：
   - 剪贴板内容自动读取 (`@clipboard`)
   - 目录结构查看 (`@tree`/`@treefull`)
   - 文件内容嵌入 (`@文件路径`)
   - 网页内容嵌入 (`@http://example.com`)
-  - 常用prompt引用 (`@quicksort`...)
+  - 常用prompt引用 (`@advice`...)
 - **网页内容转换**：内置Web服务提供HTML转Markdown
   - 浏览器扩展集成支持, 绕过cloudflare干扰
   - 自动内容提取与格式转换
-- **智能分块处理**：自动处理大文件分块分析
 - **代理支持**：完善的HTTP代理配置检测
 - **流式响应**：实时显示API响应内容
 
@@ -39,7 +43,7 @@ askgpt "请优化这个配置文件：@config/settings.yaml"
 askgpt @https://tree-sitter.github.io/tree-sitter/using-parsers/1-getting-started.html 归纳这个文档
 
 # 嵌入常用提示词, 文件放到在prompts/目录
-askgpt @quicksort
+askgpt @advice #这个提示器是让gpt提供修改建议
 ```
 
 

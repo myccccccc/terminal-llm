@@ -11,6 +11,7 @@ from pathlib import Path
 import tempfile
 import re
 from openai import OpenAI
+import platform
 
 def parse_arguments():
     """解析命令行参数"""
@@ -290,7 +291,6 @@ def fetch_url_content(url):
     except Exception as e:
         return f"获取URL内容失败: {str(e)}"
     
-    
 def process_text_with_file_path(text):
     """处理包含@...的文本，支持@cmd命令、@path文件路径、@http网址和prompts目录下的模板文件"""
 
@@ -300,6 +300,14 @@ def process_text_with_file_path(text):
         "tree": get_directory_context,
         'treefull': lambda: get_directory_context(max_depth=None),
     }
+    
+    # 定义环境变量
+    env_vars = {
+        'os': sys.platform,
+        'os_version': platform.version(),
+        'current_path': os.getcwd(),
+    }
+
     # 使用正则表达式查找所有@开头的命令或路径
     matches = re.findall(r'@([^\s]+)', text)
 
@@ -320,6 +328,8 @@ def process_text_with_file_path(text):
             if os.path.exists(prompts_path):
                 with open(prompts_path, 'r', encoding='utf-8') as f:
                     content = f.read(10240)  # 最多读取10k
+                    # 替换模板中的环境变量
+                    content = content.format(**env_vars)
                 text = text.replace(match_key, f"\n{content}\n")
                 continue
 
@@ -332,7 +342,7 @@ def process_text_with_file_path(text):
             # 处理URL
             if match.startswith('http'):
                 markdown_content = fetch_url_content(match)
-                text = text.replace(match_key, f"\n\n参考文档URL: {match} \n内容(已经转换成markdown):\n{markdown_content}\n\n")
+                text = text.replace(match_key, f"\n\n参考URL: {match} \n内容(已经转换成markdown):\n{markdown_content}\n\n")
                 continue
 
             # 未找到匹配项
