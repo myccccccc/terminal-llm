@@ -76,6 +76,11 @@ export GPT_BASE_URL="https://api.example.com/v1"  # OpenAI兼容API地址
 source $GPT_PATH/env.sh #zsh, bash支持@后补全
 ```
 
+### r1 api提供商
+[硅基流动](https://cloud.siliconflow.cn/i/BofVjNGq) 提供高性能API服务，注册即送2000万token，运行在华为昇腾全国产化平台上，安全可靠。  
+附教程，[硅基云API使用教程](https://docs.siliconflow.cn/usercases/use-siliconcloud-in-chatbox)  
+
+
 ## 使用指南
 
 ### 基本命令
