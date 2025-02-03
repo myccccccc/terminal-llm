@@ -296,7 +296,10 @@ def fetch_url_content(url):
     """通过API获取URL对应的Markdown内容"""
     try:
         api_url = f"http://127.0.0.1:8000/convert?url={url}"
-        response = requests.get(api_url)
+        # 确保不使用任何代理
+        session = requests.Session()
+        session.trust_env = False  # 禁用从环境变量读取代理
+        response = session.get(api_url)
         response.raise_for_status()
         return response.text
     except Exception as e:
@@ -500,7 +503,7 @@ def process_response(response_data, file_path, save=True, obsidian_doc=None, ask
 
         # 创建按年月分组的子目录
         now = time.localtime()
-        month_dir = obsidian_dir / f"{now.tm_year}-{now.tm_mon}"
+        month_dir = obsidian_dir / f"{now.tm_year}-{now.tm_mon}-{now.tm_mday}"
         month_dir.mkdir(exist_ok=True)
 
         # 生成时间戳文件名
@@ -512,8 +515,8 @@ def process_response(response_data, file_path, save=True, obsidian_doc=None, ask
             f.write(content)
 
         # 更新main.md
-        main_file = obsidian_dir / "索引.md"
-        link_name = ask_param[:256] if ask_param else timestamp
+        main_file = obsidian_dir / f"{now.tm_year}-{now.tm_mon}-{now.tm_mday}-索引.md" 
+        link_name = re.sub(r'[{}]', '', ask_param[:256]) if ask_param else timestamp
         link = f"[[{month_dir.name}/{timestamp}|{link_name}]]\n"
 
         with open(main_file, "a", encoding="utf-8") as f:
@@ -582,6 +585,10 @@ def main():
         print("ℹ️ 未检测到代理配置")
 
     if args.ask:
+        ask_param = args.ask
+    else
+        ask_param = args.file
+    if args.ask:
         text = process_text_with_file_path(args.ask)
         print(text)
         response_data = query_gpt_api(
@@ -591,7 +598,7 @@ def main():
             model=os.environ["GPT_MODEL"],
             base_url=base_url,
         )
-        process_response(response_data, "", save=False, obsidian_doc= args.obsidian_doc, ask_param=args.ask)
+        process_response(response_data, "", save=False, obsidian_doc= args.obsidian_doc, ask_param=ask_param)
         return
 
     try:
@@ -636,7 +643,7 @@ def main():
                 model=os.environ["GPT_MODEL"],
                 base_url=base_url,
             )
-        process_response(response_data, args.file, obsidian_doc= args.obsidian_doc, ask_param=args.ask)
+        process_response(response_data, args.file, obsidian_doc= args.obsidian_doc, ask_param=ask_param)
 
     except Exception as e:
         print(f"运行时错误: {e}")
