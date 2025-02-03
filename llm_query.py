@@ -372,10 +372,6 @@ def process_text_with_file_path(text):
                 )
                 continue
 
-            # 未找到匹配项
-            print(f"错误：未找到命令、文件或URL: {match}")
-            sys.exit(1)
-
         except Exception as e:
             print(f"处理 {match} 时出错: {str(e)}")
             sys.exit(1)
@@ -459,7 +455,7 @@ def extract_and_diff_files(content):
                 print("已成功应用变更")
             except subprocess.CalledProcessError as e:
                 print(f"应用变更失败: {e}")
-                
+
 def process_response(response_data, file_path, save=True, obsidian_doc=None, ask_param=None):
     """处理API响应并保存结果"""
     if not response_data["choices"]:
@@ -501,25 +497,25 @@ def process_response(response_data, file_path, save=True, obsidian_doc=None, ask
     if obsidian_doc:
         obsidian_dir = Path(obsidian_doc)
         obsidian_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # 创建按年月分组的子目录
         now = time.localtime()
         month_dir = obsidian_dir / f"{now.tm_year}-{now.tm_mon}"
         month_dir.mkdir(exist_ok=True)
-        
+
         # 生成时间戳文件名
         timestamp = f"{now.tm_hour}-{now.tm_min}-{now.tm_sec}.md"
         obsidian_file = month_dir / timestamp
-        
+
         # 写入响应内容
         with open(obsidian_file, "w", encoding="utf-8") as f:
             f.write(content)
-        
+
         # 更新main.md
         main_file = obsidian_dir / "索引.md"
         link_name = ask_param[:256] if ask_param else timestamp
         link = f"[[{month_dir.name}/{timestamp}|{link_name}]]\n"
-        
+
         with open(main_file, "a", encoding="utf-8") as f:
             f.write(link)
 
