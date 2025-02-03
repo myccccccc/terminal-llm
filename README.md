@@ -49,6 +49,7 @@ askgpt @advice @llm_query.py @clipboard  修复其中可能的bug
 - **网页内容转换**：内置Web服务提供HTML转Markdown
   - 浏览器扩展集成支持, 绕过cloudflare干扰
   - 自动内容提取与格式转换
+- **Obsidian支持** markdown保存历史查询到指定目录
 - **代理支持**：完善的HTTP代理配置检测
 - **流式响应**：实时显示API响应内容
 

@@ -39,7 +39,7 @@ def parse_arguments():
     )
     parser.add_argument(
         "--obsidian-doc",
-        default=os.path.join(os.path.dirname(__file__), "obsidian"),
+        default=os.environ.get("GPT_DOC", os.path.join(os.path.dirname(__file__), "obsidian")),
         help="Obsidian文档备份目录路径",
     )
     return parser.parse_args()

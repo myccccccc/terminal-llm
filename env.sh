@@ -5,7 +5,7 @@ if [[ -z "$GPT_PATH" || -z "$GPT_KEY" || -z "$GPT_BASE_URL"  || -z "GPT_MODEL" ]
     echo >&2 "Error: GPT_PATH, GPT_KEY or GPT_BASE_URL or GPT_MODEL is not configured"
     return 1
 fi
-export GPT_DOC="$GPT_PATH/logs"
+export GPT_DOC="$GPT_PATH/obsidian"
 export PATH="$GPT_PATH/bin:$PATH"
 export GPT_PROMPTS_DIR="$GPT_PATH/prompts"
 export GPT_LOGS_DIR="$GPT_PATH/logs"
