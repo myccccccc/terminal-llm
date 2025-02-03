@@ -17,6 +17,9 @@ from pygments import highlight
 from pygments.lexers import DiffLexer
 from pygments.formatters import TerminalFormatter
 
+MAX_FILE_SIZE  = 32000
+MAX_PROMPT_SIZE = 10240
+
 def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
@@ -34,7 +37,7 @@ def parse_arguments():
     parser.add_argument(
         "--chunk-size",
         type=int,
-        default=32000,
+        default=MAX_FILE_SIZE,
         help="代码分块大小（字符数，仅在使用--file时有效）",
     )
     parser.add_argument(
@@ -351,7 +354,7 @@ def process_text_with_file_path(text):
             prompts_path = os.path.join(os.path.dirname(__file__), "prompts", match)
             if os.path.exists(prompts_path):
                 with open(prompts_path, "r", encoding="utf-8") as f:
-                    content = f.read(10240)  # 最多读取10k
+                    content = f.read(MAX_PROMPT_SIZE)  # 最多读取10k
                     # 替换模板中的环境变量
                     content = content.format(**env_vars)
                 text = text.replace(match_key, f"\n{content}\n")
@@ -359,7 +362,7 @@ def process_text_with_file_path(text):
 
             if os.path.exists(expanded_path):
                 with open(expanded_path, "r", encoding="utf-8") as f:
-                    content = f.read(32000)  # 最多读取32k
+                    content = f.read(MAX_FILE_SIZE)  # 最多读取32k
                 text = text.replace(
                     match_key,
                     f"\n\n文件 {expanded_path} 内容:\n```\n{content}\n```\n\n",
