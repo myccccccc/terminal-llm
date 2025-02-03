@@ -1,8 +1,8 @@
 # gpt 配置
 
 # 检查GPT_PATH和GPT_KEY是否配置
-if [[ -z "$GPT_PATH" || -z "$GPT_KEY" || -z "$GPT_BASE_URL" ]]; then
-    echo >&2 "Error: GPT_PATH, GPT_KEY or GPT_BASE_URL is not configured"
+if [[ -z "$GPT_PATH" || -z "$GPT_KEY" || -z "$GPT_BASE_URL"  || -z "GPT_MODEL" ]]; then
+    echo >&2 "Error: GPT_PATH, GPT_KEY or GPT_BASE_URL or GPT_MODEL is not configured"
     return 1
 fi
 export GPT_DOC="$GPT_PATH/logs"
