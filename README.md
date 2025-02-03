@@ -73,7 +73,7 @@ export GPT_PATH="/path/to/terminal-llm"
 export GPT_KEY="your-api-key"
 export GPT_MODEL="your-model"
 export GPT_BASE_URL="https://api.example.com/v1"  # OpenAI兼容API地址
-source $GPT_PATH/env.sh #zsh支持@后补全，bash没测过
+source $GPT_PATH/env.sh #zsh, bash支持@后补全
 ```
 
 ## 使用指南
