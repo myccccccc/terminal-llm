@@ -518,7 +518,7 @@ def process_response(response_data, file_path, save=True, obsidian_doc=None, ask
             f.write(content)
 
         # 更新main.md
-        main_file = obsidian_dir / f"{now.tm_year}-{now.tm_mon}-{now.tm_mday}-索引.md" 
+        main_file = obsidian_dir / f"{now.tm_year}-{now.tm_mon}-{now.tm_mday}-索引.md"
         link_name = re.sub(r'[{}]', '', ask_param[:256]) if ask_param else timestamp
         link = f"[[{month_dir.name}/{timestamp}|{link_name}]]\n"
 
@@ -589,7 +589,7 @@ def main():
 
     if args.ask:
         ask_param = args.ask
-    else
+    else:
         ask_param = args.file
     if args.ask:
         text = process_text_with_file_path(args.ask)
