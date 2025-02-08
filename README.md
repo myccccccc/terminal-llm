@@ -28,6 +28,9 @@ askgpt "请优化这个配置文件：@config/settings.yaml"
 # 访问网页
 askgpt @https://tree-sitter.github.io/tree-sitter/using-parsers/1-getting-started.html 归纳这个文档
 
+# 阅读新闻, 会用readability工具提取正文
+askgpt @readhttps://www.guancha.cn/internation/2025_02_08_764448.shtml 总结新闻
+
 # 嵌入常用提示词, 文件放到在prompts/目录
 askgpt @advice #这个提示器是让gpt提供修改建议
 
@@ -133,6 +136,9 @@ python server/server.py
 
 # 调用转换接口（需配合浏览器扩展使用），server/plugin加载到浏览器
 curl "http://localhost:8000/convert?url=当前页面URL"
+
+# Firefox Readability新闻提取, 前面的server在收到is_news=True参数时，会查询这个, 端口3000, package.json中可改    
+cd node; npm install; npm start
 ```
 
 
