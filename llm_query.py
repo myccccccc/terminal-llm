@@ -295,10 +295,10 @@ def get_clipboard_content():
         return f"获取剪贴板内容时出错: {str(e)}"
 
 
-def fetch_url_content(url):
+def fetch_url_content(url, is_news=False):
     """通过API获取URL对应的Markdown内容"""
     try:
-        api_url = f"http://127.0.0.1:8000/convert?url={url}"
+        api_url = f"http://127.0.0.1:8000/convert?url={url}&is_news={is_news}"
         # 确保不使用任何代理
         session = requests.Session()
         session.trust_env = False  # 禁用从环境变量读取代理
@@ -311,6 +311,7 @@ def fetch_url_content(url):
 
 USER_PROMPT_CONTEXT = {
     "edit": False,
+    "read": False,
 }
 
 
@@ -370,8 +371,12 @@ def process_text_with_file_path(text):
                 continue
 
             # 处理URL
-            if match.startswith("http"):
-                markdown_content = fetch_url_content(match)
+            if match.startswith("http") or match.startswith("read"):
+                # 如果match以read开头，则去掉read前缀
+                if match.startswith("read"):
+                    match = match[4:]
+                    USER_PROMPT_CONTEXT["read"] = True
+                markdown_content = fetch_url_content(match, USER_PROMPT_CONTEXT["read"])
                 text = text.replace(
                     match_key,
                     f"\n\n参考URL: {match} \n内容(已经转换成markdown):\n{markdown_content}\n\n",

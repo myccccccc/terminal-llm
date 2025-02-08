@@ -57,7 +57,7 @@ class ConvertHandler(web.RequestHandler):
     async def get(self):
         try:
             url = self.get_query_argument('url')
-            news = self.get_query_argument("is_news", False)
+            news = self.get_query_argument("is_news", "false").lower() == "true"
             logger.debug(f"🌐 收到转换请求，URL: {url}")
 
             if not connected_clients:
