@@ -103,6 +103,7 @@ askgpt "如何实现快速排序算法？"
 **模型切换**
 
 ```bash
+#model.json
 ➜  terminal-llm git:(main) ✗ listgpt 
 14b: deepseek-r1:14b
 ➜  terminal-llm :(main) ✗ usegpt 14b
@@ -110,6 +111,16 @@ askgpt "如何实现快速排序算法？"
   GPT_KEY: olla****
   GPT_BASE_URL: http://192.168.40.116:11434/v1
   GPT_MODEL: deepseek-r1:14b
+```
+```json
+{
+    "14b": {
+        "key": "ollama",
+        "base_url": "http://192.168.40.116:11434/v1",
+        "model_name": "r1-qwen-14b:latest"
+    }
+
+}
 ```
 
 ### 高级功能
