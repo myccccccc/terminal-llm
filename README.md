@@ -1,7 +1,7 @@
 
 # terminal LLM
 
-一个基于deepseek R1 api的终端辅助工具，提供便捷的命令行交互和上下文感知功能, 目标是命令行版本的cursor, windsurf。
+一个基于deepseek R1 api的终端辅助工具，使用openai兼容接口，提供便捷的命令行交互和上下文感知功能, 目标是命令行版本的cursor, windsurf。
 
 ## 使用场景
 一个askgpt后边可以用多个@，混合构成上下文, 可以一边使用网址，同时加入文件内容，不必带""号    
@@ -51,6 +51,7 @@ askgpt @advice @llm_query.py @clipboard  修复其中可能的bug
   - 自动内容提取与格式转换
 - **Obsidian支持** markdown保存历史查询到指定目录
 - **代理支持**：完善的HTTP代理配置检测
+- **多个模型切换** 在本机ollama 14b,32b小模型, 远程r1全量模型之间切换
 - **流式响应**：实时显示API响应内容
 
 ## 安装与配置
@@ -94,8 +95,21 @@ explaingpt file.py prompts/custom-prompt.txt
 ```
 
 **直接提问**
+
 ```bash
 askgpt "如何实现快速排序算法？"
+```
+
+**模型切换**
+
+```bash
+➜  terminal-llm git:(main) ✗ listgpt 
+14b: deepseek-r1:14b
+➜  terminal-llm :(main) ✗ usegpt 14b
+成功设置GPT环境变量：
+  GPT_KEY: olla****
+  GPT_BASE_URL: http://192.168.40.116:11434/v1
+  GPT_MODEL: deepseek-r1:14b
 ```
 
 ### 高级功能

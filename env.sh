@@ -33,6 +33,58 @@ function explaingpt() {
     $GPT_PATH/.venv/bin/python $GPT_PATH/llm_query.py --file "$file" --prompt-file "$prompt_file"
 }
 
+function listgpt() {
+    local config_file="${1:-$GPT_PATH/model.json}"
+
+    # 检查配置文件是否存在
+    [[ -f "$config_file" ]] || {
+        echo >&2 "错误：未找到配置文件: $config_file"
+        return 1
+    }
+
+    # 使用python3解析并列出所有非空key的模型
+    python3 -c "import json, sys; config=json.load(open('$config_file')); [print(f'{k}: {v[\"model_name\"]}') for k, v in config.items() if v.get('key')]" 2>/dev/null
+}
+
+
+function usegpt() {
+    local model_name="$1"
+    local config_file="${2:-$GPT_PATH/model.json}"
+
+    # 检查参数
+    [[ -z "$model_name" ]] && {
+        echo >&2 "错误：模型名称不能为空"
+        return 1
+    }
+
+    # 检查配置文件是否存在
+    [[ -f "$config_file" ]] || {
+        echo >&2 "错误：未找到配置文件: $config_file"
+        return 1
+    }
+
+    # 使用python3一次性解析并提取所有配置项
+    local key base_url model
+    read key base_url model <<< $(python3 -c "import json, sys; config=json.load(open('$config_file')).get('$model_name', {}); print(config.get('key', ''), config.get('base_url', ''), config.get('model_name', ''))" 2>/dev/null)
+
+    # 检查是否成功获取配置
+    if [[ -z "$key" || -z "$base_url" || -z "$model" ]]; then
+        echo >&2 "错误：未找到模型 '$model_name' 或配置不完整"
+        return 1
+    fi
+
+    # 设置环境变量
+    export GPT_KEY="$key"
+    export GPT_BASE_URL="$base_url"
+    export GPT_MODEL="$model"
+
+    echo "成功设置GPT环境变量："
+    echo "  GPT_KEY: ${key:0:4}****"
+    echo "  GPT_BASE_URL: $base_url"
+    echo "  GPT_MODEL: $model"
+}
+
+
 function askgpt() {
     local question="$@"
 
