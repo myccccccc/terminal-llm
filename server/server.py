@@ -8,6 +8,7 @@ from tornado import web, websocket, ioloop, gen
 import pdb
 from markitdown import MarkItDown
 import argparse
+from tornado.httpclient import AsyncHTTPClient
 
 # 调试模式配置
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
@@ -49,10 +50,14 @@ class BrowserWebSocketHandler(websocket.WebSocketHandler):
         del connected_clients[self.client_id]
         logger.debug(f"❌ 浏览器客户端断开，ID: {self.client_id}")
 
+
+
+
 class ConvertHandler(web.RequestHandler):
     async def get(self):
         try:
             url = self.get_query_argument('url')
+            news = self.get_query_argument("is_news", False)
             logger.debug(f"🌐 收到转换请求，URL: {url}")
 
             if not connected_clients:
@@ -77,6 +82,30 @@ class ConvertHandler(web.RequestHandler):
                     fut
                 )
                 logger.debug(f"📥 收到HTML响应，长度: {len(html)} 字符")
+                if news:
+                    # ========== 新增净化处理 ==========
+                    logger.debug("🛠 正在使用Readability净化内容...")
+                    try:
+                        http_client = AsyncHTTPClient()
+                        response = await http_client.fetch(
+                            'http://localhost:3000/html_reader',
+                            method='POST',
+                            headers={'Content-Type': 'application/json'},
+                            body=json.dumps({'content': html}),
+                            connect_timeout=10,
+                            request_timeout=30
+                        )
+                        if response.code == 200:
+                            result = json.loads(response.body)
+                            if 'content' in result:
+                                html = result['content']
+                                logger.debug(f"✅ 净化完成，新长度: {len(html)} 字符")
+                            else:
+                                logger.warning("⚠️ 净化服务未返回有效内容，使用原始HTML")
+                        else:
+                            logger.error(f"⚠️ 净化服务返回错误状态码: {response.code}")
+                    except Exception as e:
+                        logger.error(f"🚨 净化服务调用失败: {str(e)}，继续使用原始HTML")
                 # 转换HTML为Markdown
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.html',
 delete=True) as f:

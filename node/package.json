@@ -1,0 +1,14 @@
+{                                                                             
+  "name": "readability-api",                                                  
+  "version": "1.0.0",                                                         
+  "main": "index.js",                                                         
+  "scripts": {                                                                
+    "start": "node index.js --addr=0.0.0.0:3000"                              
+  },                                                                          
+  "dependencies": {                                                           
+    "@mozilla/readability": "^0.4.2",                                         
+    "express": "^4.18.2",                                                     
+    "jsdom": "^22.1.0",                                                       
+    "yargs": "^17.7.2"                                                        
+  }                                                                           
+} 
