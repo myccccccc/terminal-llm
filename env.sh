@@ -151,6 +151,24 @@ if [[ -n "$ZSH_VERSION" ]]; then
 
     compdef _at_complete askgpt
 
+    function _usegpt_complete() {
+        local config_file="${1:-$GPT_PATH/model.json}"
+        
+        # 检查配置文件是否存在
+        [[ -f "$config_file" ]] || {
+            echo >&2 "错误：未找到配置文件: $config_file"
+            return 1
+        }
+
+        # 获取所有可用的provider名称
+        local providers=($(python3 -c "import json, sys; config=json.load(open('$config_file')); [print(k) for k in config.keys() if config[k].get('key')]" 2>/dev/null))
+
+        # 生成补全建议
+        _describe 'command' providers
+    }
+
+    compdef _usegpt_complete usegpt
+
 fi
 
 if [[ -n "$BASH_VERSION" ]]; then
@@ -197,4 +215,27 @@ if [[ -n "$BASH_VERSION" ]]; then
     }
 
     complete -F _askgpt_bash_complete askgpt
+
+    _usegpt_bash_complete() {
+        local cur prev config_file
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        config_file="${GPT_PATH}/model.json"
+
+        # 检查配置文件是否存在
+        if [[ ! -f "$config_file" ]]; then
+            echo >&2 "错误：未找到配置文件: $config_file"
+            return 1
+        fi
+
+        # 获取所有可用的provider名称
+        local providers=($(python3 -c "import json, sys; config=json.load(open('$config_file')); [print(k) for k in config.keys() if config[k].get('key')]" 2>/dev/null))
+
+        # 生成补全建议
+        COMPREPLY=($(compgen -W "${providers[*]}" -- "$cur"))
+    }
+
+    complete -F _usegpt_bash_complete usegpt
+
+
 fi
+
