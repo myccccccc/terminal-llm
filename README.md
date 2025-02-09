@@ -34,21 +34,21 @@ askgpt @readhttps://www.guancha.cn/internation/2025_02_08_764448.shtml 总结新
 # 嵌入常用提示词, 文件放到在prompts/目录
 askgpt @advice #这个提示词是让gpt提供修改建议
 
-#灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入   
+#灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入, @的东西后边最后需要加空格，以区分其它东西   
 askgpt @advice @llm_query.py @clipboard  修复其中可能的bug   
 
 #最近的会话
 recentconversation
-
-#新会话，打开新的terminal就默认是新会话，或者手工重置
-newconversation
-
 #最近的对话记录：
 # 1) 2025-02-09 18:35:27 EB6E6ED0-CAFE-488F-B247-11C1CE549B12 我前面说了什么
 # 2) 2025-02-09 18:34:37 C63CA6F6-CB89-42D2-B108-A551F8E55F75 hello
 # 3) 2025-02-09 18:23:13 27CDA712-9CD9-4C6A-98BD-FACA02844C25 hello
 #请选择对话 (1-       4，直接回车取消): 3
 #已切换到对话: C63CA6F6-CB89-42D2-B108-A551F8E55F75
+
+#新会话，打开新的terminal就默认是新会话，或者手工重置
+newconversation
+
 ```
 
 ## 功能特性

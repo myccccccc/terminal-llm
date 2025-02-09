@@ -492,7 +492,10 @@ def process_text_with_file_path(text):
     matches = re.findall(r"@([^\s]+)", text)
 
     for match in matches:
-        match_key = f"@{match} "
+        if text.endswith(match):
+            match_key = f"@{match}"
+        else:
+            match_key = f"@{match} "
         # 如果match在context里，将context设为true
         if match in USER_PROMPT_CONTEXT:
             USER_PROMPT_CONTEXT[match] = True
