@@ -123,13 +123,18 @@ def query_gpt_api(api_key, prompt, model="gpt-4", proxies=None, base_url=None):
         )
 
         content = ""
+        reasoning = ""
         # 处理流式响应
         for chunk in stream:
+            if hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
+                print(chunk.choices[0].delta.reasoning_content, end="", flush=True)
+                reasoning += chunk.choices[0].delta.reasoning_content
             if chunk.choices[0].delta.content:
                 print(chunk.choices[0].delta.content, end="", flush=True)
                 content += chunk.choices[0].delta.content
-
         print()  # 换行
+        if reasoning:
+            content = reasoning + "\n" + content
         return {"choices": [{"message": {"content": content}}]}
 
     except Exception as e:
