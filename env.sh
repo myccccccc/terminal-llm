@@ -1,40 +1,17 @@
 # gpt 配置
-
-# 检查GPT_PATH和GPT_KEY是否配置
-if [[ -z "$GPT_PATH" || -z "$GPT_KEY" || -z "$GPT_BASE_URL"  || -z "GPT_MODEL" ]]; then
-    echo >&2 "Error: GPT_PATH, GPT_KEY or GPT_BASE_URL or GPT_MODEL is not configured"
-    return 1
+if [[ -z "$GPT_PATH" ]]; then
+    # 获取当前脚本所在目录
+    export GPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 export GPT_DOC="$GPT_PATH/obsidian"
 export PATH="$GPT_PATH/bin:$PATH"
 export GPT_PROMPTS_DIR="$GPT_PATH/prompts"
 export GPT_LOGS_DIR="$GPT_PATH/logs"
-DEBUG=0
+
+#DEBUG=0
+
 # 初始化目录
 mkdir -p "$GPT_PATH"/{bin,prompts,logs} 2>/dev/null
-
-session_id=$(uuidgen)                                                         
-export GPT_SESSION_ID=$session_id 
-
-# 主函数
-function explaingpt() {
-    local file="$1"
-    local prompt_file="${2:-$GPT_PROMPTS_DIR/source-query.txt}"
-
-    # 参数检查
-    [[ -f "$file" ]] || {
-        echo >&2 "Error: Source file not found: $file"
-        return 1
-    }
-    [[ -f "$prompt_file" ]] || {
-        echo >&2 "Error: Prompt file not found: $prompt_file"
-        return 1
-    }
-
-    echo $GPT_PATH/.venv/bin/python $prompt_file $file
-    # 执行核心脚本
-    $GPT_PATH/.venv/bin/python $GPT_PATH/llm_query.py --file "$file" --prompt-file "$prompt_file"
-}
 
 function listgpt() {
     local config_file="${1:-$GPT_PATH/model.json}"
@@ -53,6 +30,7 @@ function listgpt() {
 function usegpt() {
     local model_name="$1"
     local config_file="${2:-$GPT_PATH/model.json}"
+    local no_verbose="$3"
 
     # 检查参数
     [[ -z "$model_name" ]] && {
@@ -81,11 +59,74 @@ function usegpt() {
     export GPT_BASE_URL="$base_url"
     export GPT_MODEL="$model"
 
-    echo "成功设置GPT环境变量："
-    echo "  GPT_KEY: ${key:0:4}****"
-    echo "  GPT_BASE_URL: $base_url"
-    echo "  GPT_MODEL: $model"
+    # 如果VERBOSE参数不存在，则输出成功日志
+    if [[ -z "$no_verbose" ]]; then
+        echo "成功设置GPT环境变量："
+        echo "  GPT_KEY: ${key:0:4}****"
+        echo "  GPT_BASE_URL: $base_url"
+        echo "  GPT_MODEL: $model"
+    fi
 }
+
+# 检查GPT_PATH和GPT_KEY是否配置
+if [[ -z "$GPT_KEY" || -z "$GPT_BASE_URL"  || -z "$GPT_MODEL" ]]; then
+    [[ $DEBUG -eq 1 ]] && echo "Debug: 检测到GPT环境变量未配置，尝试使用默认provider" >&2
+    
+    if [[ -f "$GPT_PATH/model.json" ]]; then
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 找到model.json文件: $GPT_PATH/model.json" >&2
+        
+        # 使用默认的provider
+        default_provider=$(python3 -c "import json; config=json.load(open('$GPT_PATH/model.json')); print('default' if 'default' in config else next(iter(config.keys())))" 2>/dev/null)
+        
+        if [[ -z "$default_provider" ]]; then
+            echo >&2 "错误：未设置默认的provider，请在model.json中配置'default'字段"
+            [[ $DEBUG -eq 1 ]] && echo "Debug: model.json中未找到default字段，且无法获取第一个provider" >&2
+            return 1
+        fi
+        
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 找到默认provider: $default_provider" >&2
+        
+        if [[ -n "$default_provider" ]]; then
+            [[ $DEBUG -eq 1 ]] && echo "Debug: 正在使用默认provider: $default_provider" >&2
+            usegpt "$default_provider" "$GPT_PATH/model.json" 1
+            if [[ $? -ne 0 ]]; then
+                echo >&2 "错误：使用默认provider $default_provider 失败"
+                [[ $DEBUG -eq 1 ]] && echo "Debug: usegpt命令执行失败" >&2
+                return 1
+            fi
+        fi
+    else
+        echo >&2 "错误：未找到model.json文件: $GPT_PATH/model.json"
+        [[ $DEBUG -eq 1 ]] && echo "Debug: 在$GPT_PATH路径下未找到model.json文件" >&2
+        return 1
+    fi
+fi
+
+
+session_id=$(uuidgen)                                                         
+export GPT_SESSION_ID=$session_id 
+
+# 主函数
+function explaingpt() {
+    local file="$1"
+    local prompt_file="${2:-$GPT_PROMPTS_DIR/source-query.txt}"
+
+    # 参数检查
+    [[ -f "$file" ]] || {
+        echo >&2 "Error: Source file not found: $file"
+        return 1
+    }
+    [[ -f "$prompt_file" ]] || {
+        echo >&2 "Error: Prompt file not found: $prompt_file"
+        return 1
+    }
+
+    echo $GPT_PATH/.venv/bin/python $prompt_file $file
+    # 执行核心脚本
+    $GPT_PATH/.venv/bin/python $GPT_PATH/llm_query.py --file "$file" --prompt-file "$prompt_file"
+}
+
+
 
 
 function askgpt() {
