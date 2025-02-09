@@ -204,7 +204,7 @@ groq/
 
 
 ## terminal-llm群
-![terminal-llm群二维码](doc/qrcode_1739088418032.jpg)
+<img src="doc/qrcode_1739088418032.jpg" width = "200" alt="QQ群" align=center />
 
 ## 许可证
 
