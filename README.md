@@ -19,7 +19,7 @@ askgpt @cmd 找到2小时前的所有文件, 并全部删除
 # 附加当前目录结构
 askgpt "@tree，请分析主要模块"
 
-# 附加当前目录结构全部
+# 附加当前目录结构, 包括子目录
 askgpt "@treefull，请分析主要模块"
 
 # 嵌入文件内容
@@ -28,11 +28,11 @@ askgpt "请优化这个配置文件：@config/settings.yaml"
 # 访问网页
 askgpt @https://tree-sitter.github.io/tree-sitter/using-parsers/1-getting-started.html 归纳这个文档
 
-# 阅读新闻, 会用readability工具提取正文
+# 阅读新闻, 会用readability工具提取正文, 需要配置了浏览器转发，下边有教程   
 askgpt @readhttps://www.guancha.cn/internation/2025_02_08_764448.shtml 总结新闻
 
 # 嵌入常用提示词, 文件放到在prompts/目录
-askgpt @advice #这个提示器是让gpt提供修改建议
+askgpt @advice #这个提示词是让gpt提供修改建议
 
 #灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入   
 askgpt @advice @llm_query.py @clipboard  修复其中可能的bug   
@@ -106,7 +106,7 @@ askgpt "如何实现快速排序算法？"
 **模型切换**
 
 ```bash
-#model.json
+#同目录下创建model.json, 用listgpt检查
 ➜  terminal-llm git:(main) ✗ listgpt 
 14b: deepseek-r1:14b
 ➜  terminal-llm :(main) ✗ usegpt 14b
@@ -179,7 +179,6 @@ groq/
 ├── prompts/          # 提示词模板
 ├── logs/             # 运行日志
 ├── llm_query.py      # 核心处理逻辑
-├── tree_search.py    # 目录结构分析
 ├── env.sh            # 环境配置脚本
 └── pyproject.toml    # 项目依赖配置
 ```
@@ -203,18 +202,9 @@ groq/
    - 确保8000端口未被占用, 或者在插件配置option页改地址
    - 转换服务仅接受本地连接
 
-## 示例
 
-```bash
-# 分析当前目录结构
-askgpt "根据当前项目结构@tree，请说明主要模块的作用"
-
-# 优化剪贴板中的代码
-askgpt "优化这段代码的性能：@clipboard"
-
-# 结合配置文件分析
-explaingpt config.yaml prompts/config-analysis.txt
-```
+## terminal-llm群
+![terminal-llm群二维码](doc/qrcode_1739088418032.jpg)
 
 ## 许可证
 

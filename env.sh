@@ -13,6 +13,9 @@ DEBUG=0
 # 初始化目录
 mkdir -p "$GPT_PATH"/{bin,prompts,logs} 2>/dev/null
 
+session_id=$(uuidgen)                                                         
+export GPT_SESSION_ID=$session_id 
+
 # 主函数
 function explaingpt() {
     local file="$1"

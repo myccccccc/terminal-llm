@@ -116,9 +116,9 @@ def query_gpt_api(api_key, prompt, model="gpt-4", proxies=None, base_url=None):
         stream = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0,
+            temperature=0.0,
             max_tokens=8192,
-            top_p=1,
+            top_p=0.8,
             stream=True,
         )
 
