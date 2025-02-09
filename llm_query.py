@@ -13,12 +13,14 @@ import re
 from openai import OpenAI
 import platform
 import difflib
+import datetime
 from pygments import highlight
 from pygments.lexers import DiffLexer
 from pygments.formatters import TerminalFormatter
 
-MAX_FILE_SIZE  = 32000
+MAX_FILE_SIZE = 32000
 MAX_PROMPT_SIZE = 10240
+
 
 def parse_arguments():
     """解析命令行参数"""
@@ -42,7 +44,9 @@ def parse_arguments():
     )
     parser.add_argument(
         "--obsidian-doc",
-        default=os.environ.get("GPT_DOC", os.path.join(os.path.dirname(__file__), "obsidian")),
+        default=os.environ.get(
+            "GPT_DOC", os.path.join(os.path.dirname(__file__), "obsidian")
+        ),
         help="Obsidian文档备份目录路径",
     )
     return parser.parse_args()
@@ -99,23 +103,157 @@ def split_code(content, chunk_size):
     return [content[i : i + chunk_size] for i in range(0, len(content), chunk_size)]
 
 
-def query_gpt_api(api_key, prompt, model="gpt-4", proxies=None, base_url=None):
-    """使用OpenAI API发送流式查询请求
+INDEX_PATH = Path(__file__).parent / "conversation" / "index.json"
+
+
+def _ensure_index():
+    """确保索引文件存在，不存在则创建空索引"""
+    if not INDEX_PATH.exists():
+        INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(INDEX_PATH, "w") as f:
+            json.dump({}, f)
+
+
+def _update_index(uuid, file_path):
+    """更新索引文件"""
+    _ensure_index()
+    with open(INDEX_PATH, "r+") as f:
+        index = json.load(f)
+        index[uuid] = str(file_path)
+        f.seek(0)
+        json.dump(index, f, indent=4)
+        f.truncate()
+
+
+def _build_index():
+    """遍历目录构建索引"""
+    index = {}
+    conv_dir = Path(__file__).parent / "conversation"
+
+    # 匹配文件名模式：任意时间戳 + UUID
+    pattern = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}-(.+?)\.json$")
+
+    for root, _, files in os.walk(conv_dir):
+        for filename in files:
+            # 跳过索引文件本身
+            if filename == "index.json":
+                continue
+
+            match = pattern.match(filename)
+            if match:
+                uuid = match.group(1)
+                full_path = Path(root) / filename
+                index[uuid] = str(full_path)
+
+    with open(INDEX_PATH, "w") as f:
+        json.dump(index, f, indent=4)
+
+    return index
+
+
+def get_conversation(uuid):
+    """获取对话记录"""
+    try:
+        # 先尝试读取索引
+        with open(INDEX_PATH, "r") as f:
+            index = json.load(f)
+            if uuid in index:
+                path = Path(index[uuid])
+                if path.exists():
+                    return path
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
+    # 索引不存在或查找失败，重新构建索引
+    index = _build_index()
+    if uuid in index:
+        return index[uuid]
+
+    raise FileNotFoundError(f"Conversation with UUID {uuid} not found")
+
+
+def new_conversation(uuid):
+    """创建新对话记录"""
+    current_datetime = datetime.datetime.now()
+
+    # 生成日期路径组件（自动补零）
+    date_dir = current_datetime.strftime("%Y-%m-%d")
+    time_str = current_datetime.strftime("%H-%M-%S")
+
+    # 构建完整路径
+    base_dir = Path(__file__).parent / "conversation" / date_dir
+    filename = f"{time_str}-{uuid}.json"
+    file_path = base_dir / filename
+
+    # 确保目录存在
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    # 写入初始数据并更新索引
+    with open(file_path, "w") as f:
+        json.dump([], f, indent=4)
+
+    _update_index(uuid, file_path)
+    return str(file_path)
+
+
+def load_conversation_history(file_path):
+    """加载对话历史文件"""
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        print(f"加载对话历史失败: {e}")
+        return []
+
+
+def save_conversation_history(file_path, history):
+    """保存对话历史到文件"""
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"保存对话历史失败: {e}")
+
+
+def query_gpt_api(
+    api_key,
+    prompt,
+    model="gpt-4",
+    proxies=None,
+    base_url=None,
+    conversation_file="conversation_history.json",
+):
+    """支持多轮对话的OpenAI API流式查询
 
     参数:
-        api_key (str): OpenAI API密钥
-        prompt (str): 提示词内容
-        model (str): 使用的模型，默认为gpt-4
-        proxies (dict): 代理配置
-        base_url (str): 自定义API基础URL
+        conversation_file (str): 对话历史存储文件路径
+        其他参数同上
     """
+    cid = os.environ.get("GPT_UUID_CONVERSATION")
+    if cid:
+        try:
+            conversation_file = get_conversation(cid)
+            # print("旧对话: %s\n" % conversation_file)
+        except FileNotFoundError:
+            conversation_file = new_conversation(cid)
+            # print("开新对话: %s\n" % conversation_file)
+
+    # 加载历史对话
+    history = load_conversation_history(conversation_file)
+
+    # 添加用户新提问到历史
+    history.append({"role": "user", "content": prompt})
+
     # 初始化OpenAI客户端
-    client = OpenAI(api_key=api_key, base_url=base_url)  # 添加base_url参数
+    client = OpenAI(api_key=api_key, base_url=base_url)
+
     try:
-        # 创建流式响应
+        # 创建流式响应（使用完整对话历史）
         stream = client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=history,
             temperature=0.0,
             max_tokens=8192,
             top_p=0.8,
@@ -126,21 +264,34 @@ def query_gpt_api(api_key, prompt, model="gpt-4", proxies=None, base_url=None):
         reasoning = ""
         # 处理流式响应
         for chunk in stream:
-            if hasattr(chunk.choices[0].delta, 'reasoning_content') and chunk.choices[0].delta.reasoning_content:
+            # 处理推理内容（仅打印不保存）
+            if (
+                hasattr(chunk.choices[0].delta, "reasoning_content")
+                and chunk.choices[0].delta.reasoning_content
+            ):
                 print(chunk.choices[0].delta.reasoning_content, end="", flush=True)
                 reasoning += chunk.choices[0].delta.reasoning_content
+            # 处理正式回复内容
             if chunk.choices[0].delta.content:
                 print(chunk.choices[0].delta.content, end="", flush=True)
                 content += chunk.choices[0].delta.content
         print()  # 换行
+
+        # 将助理回复添加到历史（仅保存正式内容）
+        history.append({"role": "assistant", "content": content})
+
+        # 保存更新后的对话历史
+        save_conversation_history(conversation_file, history)
+
+        # 存储思维过程
         if reasoning:
             content = reasoning + "\n" + content
+
         return {"choices": [{"message": {"content": content}}]}
 
     except Exception as e:
         print(f"OpenAI API请求失败: {e}")
         sys.exit(1)
-
 
 def _check_tool_installed(tool_name, install_url=None, install_commands=None):
     """检查指定工具是否已安装"""
@@ -472,7 +623,10 @@ def extract_and_diff_files(content):
             except subprocess.CalledProcessError as e:
                 print(f"应用变更失败: {e}")
 
-def process_response(response_data, file_path, save=True, obsidian_doc=None, ask_param=None):
+
+def process_response(
+    response_data, file_path, save=True, obsidian_doc=None, ask_param=None
+):
     """处理API响应并保存结果"""
     if not response_data["choices"]:
         raise ValueError("API返回空响应")
@@ -529,7 +683,7 @@ def process_response(response_data, file_path, save=True, obsidian_doc=None, ask
 
         # 更新main.md
         main_file = obsidian_dir / f"{now.tm_year}-{now.tm_mon}-{now.tm_mday}-索引.md"
-        link_name = re.sub(r'[{}]', '', ask_param[:256]) if ask_param else timestamp
+        link_name = re.sub(r"[{}]", "", ask_param[:256]) if ask_param else timestamp
         link = f"[[{month_dir.name}/{timestamp}|{link_name}]]\n"
 
         with open(main_file, "a", encoding="utf-8") as f:
@@ -611,7 +765,13 @@ def main():
             model=os.environ["GPT_MODEL"],
             base_url=base_url,
         )
-        process_response(response_data, "", save=False, obsidian_doc= args.obsidian_doc, ask_param=ask_param)
+        process_response(
+            response_data,
+            "",
+            save=False,
+            obsidian_doc=args.obsidian_doc,
+            ask_param=ask_param,
+        )
         return
 
     try:
@@ -656,7 +816,12 @@ def main():
                 model=os.environ["GPT_MODEL"],
                 base_url=base_url,
             )
-        process_response(response_data, args.file, obsidian_doc= args.obsidian_doc, ask_param=ask_param)
+        process_response(
+            response_data,
+            args.file,
+            obsidian_doc=args.obsidian_doc,
+            ask_param=ask_param,
+        )
 
     except Exception as e:
         print(f"运行时错误: {e}")

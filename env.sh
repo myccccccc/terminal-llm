@@ -18,8 +18,115 @@ export PATH="$GPT_PATH/bin:$PATH"
 export GPT_PROMPTS_DIR="$GPT_PATH/prompts"
 export GPT_LOGS_DIR="$GPT_PATH/logs"
 
-
 #DEBUG=1
+#对话的uuid
+export GPT_UUID_CONVERSATION=`uuidgen`
+
+# 新增重置会话UUID的函数
+function newconversation() {
+    export GPT_UUID_CONVERSATION=$(uuidgen)
+    echo "新会话编号: " $GPT_UUID_CONVERSATION
+}
+
+# 新增列举所有会话功能
+function allconversation() {
+    _conversation_list "${1:-0}"
+}
+
+# 重构后的通用会话列表函数
+function _conversation_list() {
+    local limit=$1
+    local title
+    [[ $limit -gt 0 ]] && title="最近的${limit}条对话记录" || title="所有对话记录"
+
+    # 使用 Python 处理核心逻辑
+    local selection=$(CONVERSATION_LIMIT=$limit python3 -c '
+import os, sys, json
+from datetime import datetime
+
+conversation_dir = os.path.join(os.environ["GPT_PATH"], "conversation")
+files = []
+
+# 递归扫描目录
+for root, _, filenames in os.walk(conversation_dir):
+    for fname in filenames:
+        if fname in ["index.json", ".DS_Store"] or not fname.endswith(".json"):
+            continue
+        path = os.path.join(root, fname)
+
+        try:
+            # 解析路径结构 conversation/YYYY-MM-DD/HH-MM-SS-UUID.json
+            date_str = os.path.basename(os.path.dirname(path))
+            time_uuid = os.path.splitext(fname)[0]
+            uuid = "-".join(time_uuid.split("-")[3:])
+            time_str = ":".join(time_uuid.split("-")[0:3])
+
+            # 获取文件修改时间
+            mtime = os.path.getmtime(path)
+
+            # 读取第一条消息内容
+            preview = "N/A"
+            with open(path, "r") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    first_msg = data[0].get("content", "")
+                    preview = first_msg[:32].replace("\n", " ").strip()
+
+            files.append((mtime, date_str, time_str, uuid, preview, path))
+        except Exception as e:
+            continue
+
+# 按修改时间倒序排序
+files.sort(reverse=True, key=lambda x: x[0])
+
+# 应用数量限制
+limit = int(os.getenv("CONVERSATION_LIMIT", "0"))
+if limit > 0:
+    files = files[:limit]
+
+# 生成带制表符分隔的选择列表
+for idx, (_, date, time, uuid, preview, _) in enumerate(files):
+    print(f"{idx+1}\t{date} {time}\t{uuid}\t{preview}")
+')
+
+    # 处理空结果
+    if [[ -z "$selection" ]]; then
+        echo "没有找到历史对话"
+        return 1
+    fi
+
+    # 显示格式化菜单
+    echo "$title："
+    echo "$selection" | awk -F '\t' '
+    BEGIN { format = "\033[1m%2d)\033[0m \033[33m%-19s\033[0m \033[36m%-36s\033[0m %s\n" }
+    {
+        preview = length($4)>32 ? substr($4,1,32) "..." : $4
+        printf format, $1, $2, $3, preview
+    }
+    '
+
+    # 计算有效条目数
+    local item_count=$(echo "$selection" | wc -l)
+
+    # 用户输入处理
+    echo -n "请选择对话 (1-${item_count}，直接回车取消): "
+    read -r choice
+
+    # 选择验证和处理
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= item_count));
+then
+        local selected_uuid=$(echo "$selection" | awk -F '\t' -v choice="$choice" 'NR==choice {print $3}')
+        export GPT_UUID_CONVERSATION="$selected_uuid"
+        echo "已切换到对话: $selected_uuid"
+    else
+        echo "操作已取消"
+    fi
+}
+
+# 修改原有 recentconversation 函数
+function recentconversation() {
+    _conversation_list 10
+}
 
 # 初始化目录
 mkdir -p "$GPT_PATH"/{bin,prompts,logs} 2>/dev/null

@@ -36,11 +36,25 @@ askgpt @advice #这个提示词是让gpt提供修改建议
 
 #灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入   
 askgpt @advice @llm_query.py @clipboard  修复其中可能的bug   
+
+#最近的会话
+recentconversation
+
+#新会话，打开新的terminal就默认是新会话，或者手工重置
+newconversation
+
+#最近的对话记录：
+# 1) 2025-02-09 18:35:27 EB6E6ED0-CAFE-488F-B247-11C1CE549B12 我前面说了什么
+# 2) 2025-02-09 18:34:37 C63CA6F6-CB89-42D2-B108-A551F8E55F75 hello
+# 3) 2025-02-09 18:23:13 27CDA712-9CD9-4C6A-98BD-FACA02844C25 hello
+#请选择对话 (1-       4，直接回车取消): 3
+#已切换到对话: C63CA6F6-CB89-42D2-B108-A551F8E55F75
 ```
 
 ## 功能特性
 
-- **代码文件分析**：替代view, vim, 用大模型分析本地源代码文件, 提供代码修改建议    
+- **代码文件分析**：替代view, vim, 用大模型分析本地源代码文件, 提供代码修改建议 
+- **对话保存，对话切换** 跟进提问，还可以恢复过去的会话，继续提问     
 - **上下文集成**：
   - 剪贴板内容自动读取 (`@clipboard`)
   - 目录结构查看 (`@tree`/`@treefull`)
@@ -89,6 +103,23 @@ source $GPT_PATH/env.sh #zsh, bash支持@后补全
 ## 使用指南
 
 ### 基本命令
+
+**会话管理**
+
+```bash
+#列出历史对话
+➜  terminal-llm git:(main) ✗ allconversation #allconversation 2只显示最近两个, recentconversation是allconversation 10
+所有对话记录：
+ 1) 2025-02-09 19:07:34 E8737837-AD37-46B0-ACEA-8A7F93BE25E8 文件 /Users/richard/code/termi...
+ 2) 2025-02-09 18:34:37 C63CA6F6-CB89-42D2-B108-A551F8E55F75 hello
+ 3) 2025-02-09 18:48:47 5EC8AF87-8E00-4BCB-9588-1F131D6BC9FE recentconversation() {     # 使...
+ 4) 2025-02-09 18:35:27 EB6E6ED0-CAFE-488F-B247-11C1CE549B12 我前面说了什么
+ 5) 2025-02-09 18:23:13 27CDA712-9CD9-4C6A-98BD-FACA02844C25 hello
+请选择对话 (1-       5，直接回车取消):
+#选之后可以恢复到对话，或者什么也不会选Enter退出
+➜  terminal-llm git:(main) ✗ newconversation #开始一个空对话
+新会话编号:  D84E64CF-F337-4B8B-AD2D-C58FD2AE713C
+```
 
 **分析源代码文件**
 ```bash
