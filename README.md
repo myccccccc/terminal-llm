@@ -73,7 +73,7 @@ source .venv/bin/activate
 
 3. **环境变量配置**
 ```bash
-# 在shell配置文件中添加 (~/.bashrc 或 ~/.zshrc)
+# 在shell配置文件中添加 (~/.bashrc 或 ~/.zshrc), 如果配置了model.json则只需要最后一行，source $GPT_PATH/env.sh
 export GPT_PATH="/path/to/terminal-llm"
 export GPT_KEY="your-api-key"
 export GPT_MODEL="your-model"
@@ -106,7 +106,7 @@ askgpt "如何实现快速排序算法？"
 **模型切换**
 
 ```bash
-#同目录下创建model.json, 用listgpt检查
+#同目录下创建model.json, 用listgpt检查，配置了model.json后，不需要再加GPT_*环境变量，会使用"default" 供应商，或者第一个
 ➜  terminal-llm git:(main) ✗ listgpt 
 14b: deepseek-r1:14b
 ➜  terminal-llm :(main) ✗ usegpt 14b

@@ -8,7 +8,7 @@ export PATH="$GPT_PATH/bin:$PATH"
 export GPT_PROMPTS_DIR="$GPT_PATH/prompts"
 export GPT_LOGS_DIR="$GPT_PATH/logs"
 
-#DEBUG=0
+DEBUG=$GPT_DEBUG
 
 # 初始化目录
 mkdir -p "$GPT_PATH"/{bin,prompts,logs} 2>/dev/null
