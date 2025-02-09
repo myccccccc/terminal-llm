@@ -1,8 +1,18 @@
 # gpt 配置
-if [[ -z "$GPT_PATH" ]]; then
-    # 获取当前脚本所在目录
-    export GPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-fi
+if [[ -z "$GPT_PATH" ]]; then                                                 
+    if [ -n "$BASH_VERSION" ]; then                                             
+    # 针对 bash，使用 BASH_SOURCE                                             
+    _SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)                 
+    elif [ -n "$ZSH_VERSION" ]; then                                            
+    # 针对 zsh，使用 %x 扩展                                                  
+    _SCRIPT_DIR=$(cd "$(dirname "${(%):-%x}")" && pwd)                        
+    else                                                                        
+    echo "Error: Unsupported shell. Please use bash or zsh."                  
+    return 1 2>/dev/null || exit 1                                            
+    fi                                                                          
+    export GPT_PATH="$_SCRIPT_DIR"                                              
+    unset _SCRIPT_DIR                                                           
+fi       
 export GPT_DOC="$GPT_PATH/obsidian"
 export PATH="$GPT_PATH/bin:$PATH"
 export GPT_PROMPTS_DIR="$GPT_PATH/prompts"
