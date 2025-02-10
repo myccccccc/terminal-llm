@@ -6,6 +6,7 @@ import json
 import time
 import subprocess
 import argparse
+import string
 from urllib.parse import urlparse
 from pathlib import Path
 import tempfile
@@ -98,8 +99,7 @@ def detect_proxies():
 
 def split_code(content, chunk_size):
     """将代码内容分割成指定大小的块
-    注意：当前实现适用于英文字符场景，如需支持多语言建议改用更好的分块算法
-    """
+    注意：当前实现适用于英文字符场景，如需支持多语言建议改用更好的分块算法"""
     return [content[i : i + chunk_size] for i in range(0, len(content), chunk_size)]
 
 
@@ -370,7 +370,7 @@ def get_directory_context(max_depth=1):
             cmd.extend(["-L", str(max_depth)])
 
         result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True
         )
 
         if result.returncode == 0:
@@ -387,6 +387,51 @@ def get_directory_context(max_depth=1):
 
     except Exception as e:
         return f"获取目录上下文时出错: {str(e)}"
+
+
+def is_text_file(file_path):
+    try:
+        # 使用 subprocess.run 调用 file 命令
+        result = subprocess.run(['file', '--mime-type', '-b', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # 获取命令输出并去除空格和换行符
+        mime_type = result.stdout.strip()
+
+        # 判断 MIME 类型是否为 text
+        if mime_type.startswith('text/'):
+            return True
+        else:
+            return False
+    except Exception as e:
+        print(f"Error checking file type: {e}")
+        return False
+
+def generate_treefullfile_context():
+    """生成完整目录结构及所有文件内容，但只显示文本文件的具体内容。"""
+    current_dir = os.getcwd()
+    dir_context = get_directory_context(max_depth=None)  # 假设这个函数已经定义了
+    file_contents = []
+    
+    for root, dirs, files in os.walk(current_dir, topdown=True):
+        # 过滤隐藏目录和文件
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+        files = [f for f in files if not f.startswith('.')]
+
+        for file in files:
+            file_path = os.path.join(root, file)
+            rel_path = os.path.relpath(file_path, current_dir)
+            
+            if is_text_file(file_path):
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read(MAX_FILE_SIZE)
+                        file_contents.append(f"文件路径: {rel_path}\n内容:\n```\n{content}\n```")
+                except Exception as e:
+                    file_contents.append(f"无法读取文件 {rel_path}: {str(e)}")
+            else:
+                file_contents.append(f"文件路径: {rel_path} (非文本文件)")
+    
+    return dir_context + "\n\n所有文件内容:\n" + "\n\n".join(file_contents)
 
 
 def process_text_with_tree(text):
@@ -479,6 +524,7 @@ def process_text_with_file_path(text):
         "clipboard": get_clipboard_content,
         "tree": get_directory_context,
         "treefull": lambda: get_directory_context(max_depth=None),
+        "treefullfile": generate_treefullfile_context,
     }
 
     # 定义环境变量
