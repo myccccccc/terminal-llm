@@ -39,6 +39,10 @@ askgpt @advice #这个提示词是让gpt提供修改建议
 #灵活引入提示词块，提供文件，完成修改目录, 同时将剪贴版里边的片段引入, @的东西后边最后需要加空格，以区分其它东西   
 askgpt @advice @llm_query.py @clipboard  修复其中可能的bug   
 
+#使用自定义上下文，prompts/目录下写的，支持自动补全
+#实现功能，从网页里复制了一段别人的长文，用r1 `整理这个人的观点，点评一下`
+askgpt @clipboard @comment
+
 #最近的会话
 recentconversation
 #最近的对话记录：
@@ -118,7 +122,7 @@ source $GPT_PATH/env.sh #zsh, bash支持@后补全
  4) 2025-02-09 18:35:27 EB6E6ED0-CAFE-488F-B247-11C1CE549B12 我前面说了什么
  5) 2025-02-09 18:23:13 27CDA712-9CD9-4C6A-98BD-FACA02844C25 hello
 请选择对话 (1-       5，直接回车取消):
-#选之后可以恢复到对话，或者什么也不会选Enter退出
+#选之后可以恢复到对话，或者什么也不选,Enter退出
 ➜  terminal-llm git:(main) ✗ newconversation #开始一个空对话
 新会话编号:  D84E64CF-F337-4B8B-AD2D-C58FD2AE713C
 ```
