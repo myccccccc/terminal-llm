@@ -1,3 +1,5 @@
-obsidian
+.obsidian
 groq*
 requirements.txt
+model.json
+.conversation

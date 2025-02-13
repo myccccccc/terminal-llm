@@ -13,7 +13,7 @@ if [[ -z "$GPT_PATH" ]]; then
     export GPT_PATH="$_SCRIPT_DIR"                                              
     unset _SCRIPT_DIR                                                           
 fi       
-export GPT_DOC="$GPT_PATH/obsidian"
+export GPT_DOC="$GPT_PATH/.obsidian"
 export PATH="$GPT_PATH/bin:$PATH"
 export GPT_PROMPTS_DIR="$GPT_PATH/prompts"
 export GPT_LOGS_DIR="$GPT_PATH/logs"
@@ -44,7 +44,7 @@ function _conversation_list() {
 import os, sys, json
 from datetime import datetime
 
-conversation_dir = os.path.join(os.environ["GPT_PATH"], "conversation")
+conversation_dir = os.path.join(os.environ["GPT_PATH"], ".conversation")
 files = []
 
 # 递归扫描目录
@@ -55,7 +55,7 @@ for root, _, filenames in os.walk(conversation_dir):
         path = os.path.join(root, fname)
 
         try:
-            # 解析路径结构 conversation/YYYY-MM-DD/HH-MM-SS-UUID.json
+            # 解析路径结构 .conversation/YYYY-MM-DD/HH-MM-SS-UUID.json
             date_str = os.path.basename(os.path.dirname(path))
             time_uuid = os.path.splitext(fname)[0]
             uuid = "-".join(time_uuid.split("-")[3:])

@@ -46,7 +46,7 @@ def parse_arguments():
     parser.add_argument(
         "--obsidian-doc",
         default=os.environ.get(
-            "GPT_DOC", os.path.join(os.path.dirname(__file__), "obsidian")
+            "GPT_DOC", os.path.join(os.path.dirname(__file__), ".obsidian")
         ),
         help="Obsidian文档备份目录路径",
     )
@@ -103,7 +103,7 @@ def split_code(content, chunk_size):
     return [content[i : i + chunk_size] for i in range(0, len(content), chunk_size)]
 
 
-INDEX_PATH = Path(__file__).parent / "conversation" / "index.json"
+INDEX_PATH = Path(__file__).parent / ".conversation" / "index.json"
 
 
 def _ensure_index():
@@ -128,7 +128,7 @@ def _update_index(uuid, file_path):
 def _build_index():
     """遍历目录构建索引"""
     index = {}
-    conv_dir = Path(__file__).parent / "conversation"
+    conv_dir = Path(__file__).parent / ".conversation"
 
     # 匹配文件名模式：任意时间戳 + UUID
     pattern = re.compile(r"^\d{1,2}-\d{1,2}-\d{1,2}-(.+?)\.json$")
@@ -181,7 +181,7 @@ def new_conversation(uuid):
     time_str = current_datetime.strftime("%H-%M-%S")
 
     # 构建完整路径
-    base_dir = Path(__file__).parent / "conversation" / date_dir
+    base_dir = Path(__file__).parent / ".conversation" / date_dir
     filename = f"{time_str}-{uuid}.json"
     file_path = base_dir / filename
 
