@@ -21,6 +21,7 @@ from pygments.formatters import TerminalFormatter
 
 MAX_FILE_SIZE = 32000
 MAX_PROMPT_SIZE = 10240
+MAX_OUTPUT_TOKEN = 32768
 
 
 def parse_arguments():
@@ -255,7 +256,7 @@ def query_gpt_api(
             model=model,
             messages=history,
             temperature=0.0,
-            max_tokens=8192,
+            max_tokens=MAX_OUTPUT_TOKEN,
             top_p=0.8,
             stream=True,
         )
